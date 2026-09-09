@@ -1,0 +1,2110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FPL Stats — Player Leaderboards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple: #37003C;
+    --purple-deep: #240027;
+    --pitch: #0BAA5A;
+    --pitch-deep: #08733D;
+    --cyan: #04F5FF;
+    --paper: #F4F1FF;
+    --paper-rgb: 244,241,255;
+    --ink: #1A0A1D;
+    --line: rgba(var(--paper-rgb),0.14);
+    --gkp: #E6C24B;
+    --def: #04F5FF;
+    --mid: #FF3D8A;
+    --fwd: #0BAA5A;
+    --grad1: rgba(11,170,90,0.25);
+    --grad2: rgba(4,245,255,0.10);
+    --card: rgba(var(--paper-rgb),0.06);
+    color-scheme: dark;
+  }
+  html[data-theme="light"]{
+    --purple: #F6F3FF;
+    --purple-deep: #FFFFFF;
+    --pitch: #0BAA5A;
+    --pitch-deep: #08733D;
+    --cyan: #007A85;
+    --paper: #241128;
+    --paper-rgb: 36,17,40;
+    --ink: #FFFFFF;
+    --line: rgba(var(--paper-rgb),0.14);
+    --gkp: #96730B;
+    --def: #007A85;
+    --mid: #C21E64;
+    --fwd: #08733D;
+    --grad1: rgba(11,170,90,0.14);
+    --grad2: rgba(0,122,133,0.08);
+    --card: rgba(var(--paper-rgb),0.04);
+    color-scheme: light;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--purple);color:var(--paper);font-family:'IBM Plex Sans',sans-serif;}
+  html{transition:background .2s ease;}
+  body, .search, .pos-btn, .tab, .fdr, .meta .gw, .retry{transition:background .2s ease, color .2s ease, border-color .2s ease;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 100% -10%, var(--grad1), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, var(--grad2), transparent 55%),
+      var(--purple);
+    min-height:100vh;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:28px 20px 60px;}
+
+  header.top{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
+    padding-bottom:18px; margin-bottom:22px; border-bottom:2px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .brand h1{
+    font-family:'Archivo Black',sans-serif; font-weight:400;
+    font-size:clamp(28px,5vw,44px); line-height:0.95; margin:0; letter-spacing:-0.01em;
+  }
+  .brand h1 span{color:var(--pitch);}
+  .brand p{margin:6px 0 0; color:rgba(var(--paper-rgb),0.65); font-size:14px;}
+  .meta{text-align:right; font-size:13px; color:rgba(var(--paper-rgb),0.65); min-width:180px;}
+  .theme-toggle{
+    flex:0 0 auto; width:38px; height:38px; border-radius:50%;
+    background:rgba(var(--paper-rgb),0.06); border:1px solid var(--line);
+    color:var(--paper); font-size:16px; cursor:pointer; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:2px;
+  }
+  .theme-toggle:hover{border-color:rgba(var(--paper-rgb),0.4);}
+  .meta .gw{
+    font-family:'IBM Plex Mono',monospace; font-size:15px; color:var(--paper);
+    background:rgba(11,170,90,0.16); border:1px solid var(--pitch); border-radius:3px;
+    padding:4px 10px; display:inline-block; margin-bottom:6px;
+  }
+
+  .controls{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px;}
+  .pos-filter{display:flex; gap:6px; flex-wrap:wrap;}
+  .pos-btn{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.02em;
+    background:transparent; border:1px solid var(--line); color:rgba(var(--paper-rgb),0.75);
+    padding:7px 13px; border-radius:3px; cursor:pointer; transition:border-color .15s, color .15s, background .15s;
+  }
+  .pos-btn:hover{border-color:rgba(var(--paper-rgb),0.4);}
+  .pos-btn.active{background:var(--paper); color:var(--ink); border-color:var(--paper); font-weight:600;}
+
+  .club-filter{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.02em;
+    background:rgba(var(--paper-rgb),0.06); border:1px solid var(--line);
+    color:rgba(var(--paper-rgb),0.85); padding:7px 10px; border-radius:3px; cursor:pointer;
+    appearance:none; -webkit-appearance:none;
+  }
+  .club-filter:hover{border-color:rgba(var(--paper-rgb),0.4);}
+  .club-filter:focus{outline:none; border-color:var(--pitch);}
+  .club-filter option{background:var(--purple); color:var(--paper);}
+
+  .reset-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:34px; height:34px; font-size:16px; line-height:1;
+    background:transparent; border:1px solid var(--line); color:rgba(var(--paper-rgb),0.75);
+    border-radius:3px; cursor:pointer; transition:border-color .15s, color .15s, background .15s;
+  }
+  .reset-btn:hover{border-color:rgba(var(--paper-rgb),0.4); color:var(--paper);}
+  .reset-btn:active{transform:rotate(-90deg);}
+
+  .search{
+    margin-left:auto; background:rgba(var(--paper-rgb),0.06); border:1px solid var(--line);
+    border-radius:3px; padding:8px 12px; color:var(--paper); font-size:14px; min-width:200px;
+    font-family:'IBM Plex Sans',sans-serif;
+  }
+  .search::placeholder{color:rgba(var(--paper-rgb),0.4);}
+  .search:focus{outline:none; border-color:var(--pitch);}
+
+  .tabs{
+    display:flex; gap:2px; overflow-x:auto; border-bottom:2px solid var(--line);
+    margin-bottom:2px; -ms-overflow-style:none; scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{
+    white-space:nowrap; padding:10px 18px 12px; font-size:14px; font-weight:600;
+    color:rgba(var(--paper-rgb),0.5); cursor:pointer; border-bottom:3px solid transparent;
+    margin-bottom:-2px; transition:color .15s, border-color .15s;
+  }
+  .tab:hover{color:rgba(var(--paper-rgb),0.85);}
+  .tab.active{color:var(--paper); border-color:var(--pitch);}
+
+  .table-wrap{margin-top:14px; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  table{width:100%; border-collapse:collapse; font-size:14px;}
+  thead th{
+    text-align:left; font-size:11px; letter-spacing:0.04em; font-weight:600;
+    color:rgba(var(--paper-rgb),0.45); padding:10px 10px; border-bottom:1px solid var(--line);
+  }
+  thead th.num, tbody td.num{text-align:right;}
+  tbody tr{border-bottom:1px solid var(--line); transition:background .12s;}
+  tbody tr:hover{background:rgba(var(--paper-rgb),0.04);}
+  tbody td{padding:11px 10px; vertical-align:middle;}
+  .rank{font-family:'IBM Plex Mono',monospace; color:rgba(var(--paper-rgb),0.5); width:28px;}
+  .rank.top{color:var(--cyan); font-weight:600;}
+  .player-cell{display:flex; align-items:center; gap:10px;}
+  .jersey-icon{
+    width:26px; height:26px; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));
+  }
+  .jersey-icon svg{width:100%; height:100%;}
+  .jersey-icon img{width:100%; height:100%; object-fit:contain;}
+  .pname{font-weight:600; color:var(--paper);}
+  .pteam{font-size:12px; color:rgba(var(--paper-rgb),0.5); font-family:'IBM Plex Mono',monospace;}
+  .stat-main{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:15px; color:var(--paper); text-align:right;}
+  .price{font-family:'IBM Plex Mono',monospace; color:rgba(var(--paper-rgb),0.7); text-align:right;}
+
+  .fdr{
+    display:inline-block; padding:3px 7px; border-radius:3px; margin:1px;
+    font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; white-space:nowrap;
+  }
+  .fdr-1{background:rgba(11,170,90,0.55); color:#08260F;}
+  .fdr-2{background:rgba(11,170,90,0.28); color:var(--paper);}
+  .fdr-3{background:rgba(var(--paper-rgb),0.14); color:var(--paper);}
+  .fdr-4{background:rgba(255,61,138,0.30); color:var(--paper);}
+  .fdr-5{background:rgba(255,61,138,0.55); color:#2A0011;}
+  .fdr-none{background:transparent; color:rgba(var(--paper-rgb),0.3);}
+  .fdr-plain{background:rgba(var(--paper-rgb),0.07); color:rgba(var(--paper-rgb),0.6); font-weight:500;}
+  .fixture-cell{white-space:nowrap; vertical-align:top;}
+  .gw-cell{vertical-align:top;}
+  .gw-pts{min-height:1.2em; line-height:1.2;}
+
+  .state{padding:60px 20px; text-align:center; color:rgba(var(--paper-rgb),0.6);}
+
+  .compare-wrap{padding:6px 0 20px;}
+  .compare-toolbar{display:flex; justify-content:flex-end; margin-bottom:12px;}
+  .compare-club-select{
+    flex:0 0 auto; width:auto; appearance:none; -webkit-appearance:none; cursor:pointer;
+    padding:4px 9px; font-size:10px; font-weight:600; border-radius:4px; border:1px solid var(--line);
+    background:transparent; color:rgba(var(--paper-rgb),0.55);
+    font-family:'IBM Plex Mono',monospace; letter-spacing:0.5px;
+  }
+  .compare-club-select:hover{border-color:rgba(var(--paper-rgb),0.4); color:var(--paper);}
+  .compare-club-select:focus{outline:none; border-color:var(--pitch);}
+  .compare-club-select option{background:var(--purple); color:var(--paper);}
+  .compare-pickers{
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:start; gap:14px;
+    margin-bottom:22px;
+  }
+  .compare-col{display:flex; flex-direction:column; gap:8px;}
+  .compare-pos-filter{display:flex; gap:4px; flex-wrap:wrap; justify-content:center;}
+  .compare-pos-btn{
+    padding:4px 9px; font-size:10px; font-weight:600; border-radius:4px; border:1px solid var(--line);
+    background:transparent; color:rgba(var(--paper-rgb),0.55); cursor:pointer;
+    font-family:'IBM Plex Mono',monospace; letter-spacing:0.5px;
+  }
+  .compare-pos-btn:hover{border-color:rgba(var(--paper-rgb),0.4); color:var(--paper);}
+  .compare-pos-btn.active{background:var(--pitch); color:#fff; border-color:var(--pitch);}
+  .compare-select{
+    width:100%; padding:10px 12px; border-radius:6px; border:1px solid var(--line);
+    background:rgba(var(--paper-rgb),0.05); color:var(--paper); font-family:'IBM Plex Sans',sans-serif;
+    font-size:14px; appearance:none; cursor:pointer;
+  }
+  .compare-select:focus{outline:none; border-color:var(--pitch);}
+  .vs-badge{
+    font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13px;
+    color:rgba(var(--paper-rgb),0.45); letter-spacing:1px; align-self:center; margin-top:26px;
+  }
+  .compare-cards{
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:14px;
+    margin-bottom:8px; text-align:center;
+  }
+  .compare-player{
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:18px 14px; border:1px solid var(--line); border-radius:10px;
+    background:var(--card);
+  }
+  .compare-player .jersey-icon{width:44px; height:44px;}
+  .compare-name{font-weight:700; font-size:16px; color:var(--paper);}
+  .compare-sub{font-size:12px; color:rgba(var(--paper-rgb),0.55); font-family:'IBM Plex Mono',monospace;}
+  .compare-empty{
+    padding:18px 14px; border:1px dashed var(--line); border-radius:10px;
+    text-align:center; color:rgba(var(--paper-rgb),0.4); font-size:13px;
+  }
+  .compare-table{width:100%; border-collapse:collapse;}
+  .compare-table tr{border-bottom:1px solid var(--line);}
+  .compare-table tr:last-child{border-bottom:none;}
+  .compare-table td{padding:10px 8px; font-family:'IBM Plex Mono',monospace; font-size:14px;}
+  .compare-table td.num{width:30%; text-align:center; font-weight:600; color:rgba(var(--paper-rgb),0.7);}
+  .compare-stat-label{
+    width:40%; text-align:center; font-family:'IBM Plex Sans',sans-serif;
+    font-size:12px; color:rgba(var(--paper-rgb),0.45); text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .stat-win{color:var(--pitch); font-weight:700;}
+  .stat-lose{color:rgba(var(--paper-rgb),0.35);}
+
+  /* Matches Page Styles */
+  .matches-wrap{padding:6px 0 20px;}
+  .matches-header{margin-bottom:16px; max-width:220px;}
+  .matches-header .compare-select{padding:8px 12px; font-size:13px;}
+
+  /* Collapsible Date Header Styles */
+  .date-group {
+    margin-bottom: 16px;
+  }
+  .date-header {
+    background: rgba(11, 170, 90, 0.15);
+    border: 1px solid var(--pitch);
+    color: var(--paper);
+    padding: 10px 16px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .date-header:hover {
+    background: rgba(11, 170, 90, 0.25);
+  }
+  .date-header .toggle-icon {
+    font-size: 11px;
+    color: var(--pitch);
+    background: rgba(var(--paper-rgb),0.1);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  .date-matches.collapsed {
+    display: none;
+  }
+
+  .match-card-wrapper {
+    margin-bottom: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+    padding: 16px;
+  }
+  .match-card-new {
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 16px;
+    align-items: start;
+  }
+  .match-card-new.no-bonus {
+    grid-template-columns: 1fr;
+  }
+  .match-main-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .match-header-new {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .score-pill-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .score-pill {
+    background: var(--purple-deep);
+    color: #FFFFFF;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 700;
+    font-size: 16px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    white-space: nowrap;
+    line-height: 1;
+  }
+  html[data-theme="light"] .score-pill {
+    background: #241128;
+    color: #FFFFFF;
+  }
+  .team-side {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--paper);
+  }
+  .team-home {
+    justify-content: flex-end;
+    flex: 1;
+    text-align: right;
+  }
+  .team-away {
+    justify-content: flex-start;
+    flex: 1;
+    text-align: left;
+  }
+  .match-events-container {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 12px;
+    padding-top: 4px;
+  }
+  .events-divider {
+    background: var(--line);
+    width: 1px;
+    height: 100%;
+  }
+  .events-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .events-home {
+    align-items: flex-end;
+    text-align: right;
+  }
+  .events-away {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .match-fulllist-container {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 12px;
+  }
+  .fulllist-col {
+    display: flex;
+    flex-direction: column;
+  }
+  .fulllist-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 6px 4px; border-top: 1px solid var(--line);
+  }
+  .fulllist-row:first-of-type { border-top: none; }
+  .fulllist-col-home .fulllist-row { flex-direction: row-reverse; }
+  .fulllist-divider {
+    background: var(--line);
+    width: 1px;
+    height: 100%;
+  }
+  .fulllist-club-header {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+    color: rgba(var(--paper-rgb),0.45); padding: 4px 4px 8px; font-family: 'IBM Plex Mono',monospace;
+  }
+  .fulllist-col-home .fulllist-club-header { text-align: right; }
+  .fulllist-col-away .fulllist-club-header { text-align: left; }
+  .ls-vs-badge{
+    font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
+    font-family: 'IBM Plex Mono',monospace; letter-spacing: 0.2px;
+    color: rgba(var(--paper-rgb),0.5); white-space: nowrap;
+  }
+  .event-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: var(--paper);
+    line-height: 1.3;
+  }
+  .event-icon-ball {
+    font-size: 14px;
+    line-height: 1;
+  }
+  .event-icon-og {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    background: #FF3D8A;
+    border-radius: 50%;
+    color: #FFFFFF;
+    font-size: 10px;
+    line-height: 1;
+  }
+  .badge-assist {
+    background: #FF3D8A;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1.2;
+    display: inline-block;
+  }
+  .no-events {
+    text-align: center;
+    color: rgba(var(--paper-rgb),0.45);
+    font-size: 12px;
+    padding: 8px 0;
+    font-weight: 500;
+  }
+  .match-bonus-box {
+    background: rgba(var(--paper-rgb), 0.03);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .bonus-title {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--paper);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .bonus-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .bonus-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bonus-badge {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    flex: 0 0 auto;
+  }
+  .bonus-badge.gold { background: #E6C24B; color: #1A0A1D; }
+  .bonus-badge.silver { background: #A0A0B0; color: #FFFFFF; }
+  .bonus-badge.bronze { background: #CD7F32; color: #FFFFFF; }
+  .bonus-badge.muted { background: rgba(var(--paper-rgb),0.12); color: rgba(var(--paper-rgb),0.5); }
+
+  .bonus-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--paper);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bonus-bps {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    color: #FF3D8A;
+  }
+  .match-more-btn {
+    margin-top: 10px;
+    background: transparent;
+    border: none;
+    color: rgba(var(--paper-rgb), 0.6);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0 0 0;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+  .match-more-btn:hover {
+    color: var(--paper);
+  }
+
+  .match-status {
+    font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px;
+    font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.4px;
+    color: rgba(var(--paper-rgb),0.45); background: rgba(var(--paper-rgb),0.07);
+  }
+  .match-status.live { background: rgba(255,61,138,0.22); color: #FF3D8A; }
+
+  .match-table { width: 100%; border-collapse: collapse; border-top: 1px solid var(--line); }
+  .match-table tbody tr { border-top: 1px solid var(--line); }
+  .match-player-cell { display: flex; align-items: center; gap: 7px; padding: 6px 12px; flex-wrap: wrap; }
+  .match-player-cell .jersey-icon { width: 16px; height: 16px; flex: 0 0 auto; }
+  .match-player-name { font-size: 12px; font-weight: 600; color: var(--paper); white-space: nowrap; }
+  .match-player-badges { display: flex; gap: 3px; flex-wrap: wrap; }
+  .mstat {
+    font-size: 9px; font-weight: 700; padding: 0px 4px; border-radius: 3px; line-height: 1.5;
+    font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.2px;
+  }
+  .mstat-goal { background: rgba(11,170,90,0.22); color: var(--pitch); }
+  .mstat-assist { background: rgba(4,245,255,0.18); color: var(--cyan); }
+  .mstat-bonus { background: rgba(230,194,75,0.25); color: #E6C24B; }
+  .mstat-yellow { background: rgba(230,194,75,0.18); }
+  .mstat-red { background: rgba(255,61,138,0.2); }
+  .mstat-save { background: rgba(var(--paper-rgb),0.1); color: rgba(var(--paper-rgb),0.7); }
+  .mstat-owng { background: rgba(255,61,138,0.2); color: #FF3D8A; }
+  .match-pts {
+    padding: 6px 12px; font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 13px;
+    color: var(--paper); text-align: right; white-space: nowrap;
+  }
+
+  /* Match popup modal (mobile) */
+  .match-modal{
+    position:fixed; inset:0; z-index:1000; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .match-modal.open{ display:flex; }
+  .match-modal-backdrop{
+    position:absolute; inset:0; background:rgba(0,0,0,0.55);
+    backdrop-filter:blur(2px);
+  }
+  .match-modal-panel{
+    position:relative; z-index:1; width:100%; max-height:82vh; overflow:hidden;
+    display:flex; flex-direction:column;
+    background:var(--purple); border-top:2px solid var(--pitch);
+    border-radius:16px 16px 0 0; box-shadow:0 -8px 40px rgba(0,0,0,0.5);
+    animation:matchModalUp .22s ease;
+  }
+  @keyframes matchModalUp{ from{ transform:translateY(100%); } to{ transform:translateY(0); } }
+  .match-modal-header{
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px;
+    padding:14px 16px; border-bottom:1px solid var(--line); flex:0 0 auto;
+  }
+  .match-modal-gw{
+    justify-self:start;
+    font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600;
+    color:var(--paper); background:rgba(11,170,90,0.16); border:1px solid var(--pitch);
+    border-radius:3px; padding:3px 9px; white-space:nowrap;
+  }
+  .match-modal-title{
+    justify-self:center; text-align:center;
+    font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:15px; color:var(--paper);
+    white-space:nowrap;
+  }
+  .match-modal-close{ justify-self:end; }
+  .match-modal-close{
+    flex:0 0 auto; width:32px; height:32px; border-radius:50%;
+    background:rgba(var(--paper-rgb),0.08); border:1px solid var(--line);
+    color:var(--paper); font-size:14px; cursor:pointer; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .match-modal-close:hover{ border-color:rgba(var(--paper-rgb),0.4); }
+  .match-modal-body{
+    padding:14px 16px 20px; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  }
+  .match-modal-body .match-fulllist-container{ margin-top:0 !important; }
+
+  @media (max-width:640px){
+    .wrap{ padding:18px 12px 48px; }
+
+    /* Header */
+    header.top { flex-direction: column; align-items: flex-start; gap:10px; padding-bottom:14px; margin-bottom:16px; }
+    .brand h1 { font-size: clamp(24px,8vw,34px); }
+    .brand p { font-size: 12px; }
+    .meta { text-align: left; min-width:0; }
+
+    /* Controls: filters + search stack full width */
+    .controls { gap:8px; }
+    .pos-filter { flex:1 1 100%; }
+    .pos-btn { flex:1 1 auto; text-align:center; padding:8px 10px; }
+    .club-filter { flex:1 1 auto; }
+    .search { margin-left:0; flex:1 1 100%; min-width:0; }
+
+    /* Tabs scroll horizontally, already do; make them a touch smaller */
+    .tab { padding:9px 13px 11px; font-size:13px; }
+
+    /* Leaderboard / weekly tables: allow horizontal scroll, keep readable */
+    table { font-size: 13px; }
+    thead th, tbody td { padding:9px 7px; }
+    .gw-table { min-width: 640px; }
+    .pteam { display: none; }
+    .jersey-icon { width:22px; height:22px; }
+
+    /* Matches */
+    .match-card-new { grid-template-columns: 1fr; gap: 12px; }
+    .match-card-wrapper { padding:12px; }
+    .team-side { font-size:13px; gap:6px; }
+    .team-name { font-size: 13px; }
+    .score-pill { font-size:14px; padding:5px 11px; }
+    .match-events-container, .match-fulllist-container { gap:8px; }
+    .match-player-name { font-size:11px; }
+    .bonus-box, .match-bonus-box { padding:12px; }
+
+    /* Compare */
+    .compare-toolbar { margin-bottom:8px; }
+    .compare-pickers, .compare-cards { grid-template-columns: 1fr auto 1fr; gap: 6px; }
+    .compare-player { padding: 12px 6px; }
+    .compare-player .jersey-icon { width:36px; height:36px; }
+    .compare-name { font-size: 13px; }
+    .compare-sub { font-size: 10px; }
+    .compare-table td, .compare-stat-label { font-size: 11px; padding: 8px 3px; }
+    .compare-pos-btn, .compare-club-select { padding: 3px 6px; font-size: 9px; }
+    .compare-pos-filter { gap:3px; }
+    .compare-select { font-size:13px; padding:8px 10px; }
+    .vs-badge { margin-top: 40px; font-size:11px; }
+  }
+
+  @media (max-width:400px){
+    .brand h1 { font-size: 26px; }
+    .pos-btn { padding:7px 6px; font-size:11px; }
+    .tab { padding:8px 10px 10px; font-size:12px; }
+    .compare-pos-btn, .compare-club-select { padding:3px 4px; font-size:8px; letter-spacing:0.3px; }
+    .compare-table td, .compare-stat-label { font-size:10px; padding:7px 2px; }
+  }
+  .state.error{color:#FF8A8A;}
+  .retry{
+    margin-top:14px; background:var(--pitch); color:var(--purple-deep); border:none;
+    font-weight:700; padding:9px 18px; border-radius:3px; cursor:pointer; font-size:14px;
+  }
+  footer{margin-top:26px; font-size:12px; color:rgba(var(--paper-rgb),0.35); text-align:center;}
+  footer a{color:rgba(var(--paper-rgb),0.5);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <h1>FPL <span>STATS</span></h1>
+      <p>Player leaderboards, pulled straight from the season's live data</p>
+    </div>
+    <div style="display:flex; align-items:flex-end; gap:10px;">
+      <div class="meta" id="metaBox">
+        <span class="gw">Loading…</span>
+      </div>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark/light mode" title="Toggle dark/light mode">🌙</button>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="pos-filter" id="posFilter">
+      <button class="pos-btn active" data-pos="ALL">ALL</button>
+      <button class="pos-btn" data-pos="GKP">GKP</button>
+      <button class="pos-btn" data-pos="DEF">DEF</button>
+      <button class="pos-btn" data-pos="MID">MID</button>
+      <button class="pos-btn" data-pos="FWD">FWD</button>
+    </div>
+    <select class="club-filter" id="clubFilter" title="Filter by club">
+      <option value="ALL">All Clubs</option>
+    </select>
+    <button class="reset-btn" id="resetFilters" type="button" title="Reset filters" aria-label="Reset filters">↻</button>
+    <input class="search" id="searchBox" type="text" placeholder="Search player or club…">
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="table-wrap" id="tableWrap">
+    <div class="state" id="stateMsg">Fetching live FPL data (a few seconds — it's a large dataset)…</div>
+  </div>
+
+  <footer>Source: fantasy.premierleague.com/api/bootstrap-static — refreshed each page load</footer>
+</div>
+
+<div class="match-modal" id="matchModal" aria-hidden="true">
+  <div class="match-modal-backdrop" data-close="1"></div>
+  <div class="match-modal-panel" role="dialog" aria-modal="true">
+    <div class="match-modal-header">
+      <span class="match-modal-gw"></span>
+      <span class="match-modal-title"></span>
+      <button class="match-modal-close" type="button" aria-label="Close" data-close="1">✕</button>
+    </div>
+    <div class="match-modal-body"></div>
+  </div>
+</div>
+
+<script>
+const WORKER_URL = 'https://fpl-proxy.mbaihaki88.workers.dev/';
+const API_URL = 'https://fantasy.premierleague.com/api/bootstrap-static/';
+const PROXIES = [
+  { name: 'worker',     build: url => `${WORKER_URL}?url=${encodeURIComponent(url)}` },
+  { name: 'codetabs',   build: url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}` },
+  { name: 'allorigins', build: url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` },
+];
+
+const POS_NAMES = {1:'GKP', 2:'DEF', 3:'MID', 4:'FWD'};
+
+const TEAM_COLORS = {
+  ARS:'#EF0107', AVL:'#670E36', BOU:'#DA291C', BRE:'#E30613', BHA:'#0057B8',
+  BUR:'#6C1D45', CHE:'#034694', CRY:'#1B458F', EVE:'#003399', FUL:'#FFFFFF',
+  IPS:'#0044A9', LEI:'#003090', LEE:'#FFFFFF', LIV:'#C8102E', MCI:'#6CABDD',
+  MUN:'#DA291C', NEW:'#1B1B1B', NFO:'#DD0000', SOU:'#D71920', SUN:'#E03A3E',
+  TOT:'#132257', WHU:'#7A263A', WOL:'#FDB913',
+};
+const JERSEY_FALLBACK = '#6B6478';
+
+function jerseyIcon(teamShort, teamCode){
+  const color = TEAM_COLORS[teamShort] || JERSEY_FALLBACK;
+  const needsOutline = (color === '#FFFFFF' || color === '#fff');
+  const stroke = needsOutline ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.35)';
+  const svgFallback = `
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+        <path d="M24,6 L32,12 L40,6 L52,14 L46,24 L40,20 L40,58 L24,58 L24,20 L18,24 L12,14 Z"
+          fill="${color}" stroke="${stroke}" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M27,9 L32,13 L37,9" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>`;
+  const realImg = teamCode
+    ? `<img src="https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-66.png"
+         alt="" loading="lazy"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">`
+    : '';
+  return `<div class="jersey-icon">${realImg}${svgFallback}</div>`;
+}
+
+const TABS = [
+  { id:'points', label:'Total Points', stat: p => p.total_points, fmt: v => v, unit:'pts' },
+  { id:'form',   label:'In Form',      stat: p => parseFloat(p.form)||0, fmt: v => v.toFixed(1), unit:'form' },
+  { id:'value',  label:'Best Value',   stat: p => p.now_cost>0 ? p.total_points/(p.now_cost/10) : 0, fmt: v => v.toFixed(1), unit:'pts/£m' },
+  { id:'owned',  label:'Most Selected',stat: p => parseFloat(p.selected_by_percent)||0, fmt: v => v.toFixed(1)+'%', unit:'' },
+  { id:'ict',    label:'ICT Index',    stat: p => parseFloat(p.ict_index)||0, fmt: v => v.toFixed(1), unit:'' },
+  { id:'ga',     label:'Goals + Assists', stat: p => (p.goals_scored||0)+(p.assists||0), fmt: v => v, unit:'' },
+  { id:'consistent', label:'3+ Every Week', special:true },
+  { id:'allplayers', label:'All Player', special:true },
+  { id:'compare', label:'Compare Players', special:true },
+  { id:'matches', label:'Matches', special:true },
+];
+
+let DATA = null;
+let activePos = 'ALL';
+let activeClub = 'ALL';
+let activeTab = 'points';
+let searchTerm = '';
+let theme = 'dark';
+let compareIdA = null;
+let compareIdB = null;
+let compareFilterA = 'ALL';
+let compareFilterB = 'ALL';
+let compareClubA = 'ALL';
+let compareClubB = 'ALL';
+let matchesEventId = null;
+let matchesOpenIds = new Set();
+let collapsedDates = new Set();
+
+const COMPARE_STATS = [
+  { label:'Total Points',    get: p => p.total_points,                          fmt: v => v,             higher:true },
+  { label:'Points / Game',   get: p => parseFloat(p.points_per_game)||0,        fmt: v => v.toFixed(1),  higher:true },
+  { label:'Form (last 5)',   get: p => parseFloat(p.form)||0,                   fmt: v => v.toFixed(1),  higher:true },
+  { label:'Price',           get: p => p.now_cost/10,                           fmt: v => '£'+v.toFixed(1)+'m' },
+  { label:'Value (pts/£m)',  get: p => p.now_cost>0 ? p.total_points/(p.now_cost/10) : 0, fmt: v => v.toFixed(1), higher:true },
+  { label:'Selected By',     get: p => parseFloat(p.selected_by_percent)||0,    fmt: v => v.toFixed(1)+'%' },
+  { label:'Minutes',         get: p => p.minutes||0,                           fmt: v => v,             higher:true },
+  { label:'Goals',           get: p => p.goals_scored||0,                      fmt: v => v,             higher:true },
+  { label:'Assists',         get: p => p.assists||0,                           fmt: v => v,             higher:true },
+  { label:'xG',              get: p => parseFloat(p.expected_goals)||0,        fmt: v => v.toFixed(2),  higher:true },
+  { label:'xA',              get: p => parseFloat(p.expected_assists)||0,      fmt: v => v.toFixed(2),  higher:true },
+  { label:'Clean Sheets',    get: p => p.clean_sheets||0,                      fmt: v => v,             higher:true },
+  { label:'Saves',           get: p => p.saves||0,                             fmt: v => v,             higher:true },
+  { label:'Bonus Points',    get: p => p.bonus||0,                             fmt: v => v,             higher:true },
+  { label:'ICT Index',       get: p => parseFloat(p.ict_index)||0,             fmt: v => v.toFixed(1),  higher:true },
+  { label:'Yellow Cards',    get: p => p.yellow_cards||0,                      fmt: v => v,             higher:false },
+  { label:'Red Cards',       get: p => p.red_cards||0,                         fmt: v => v,             higher:false },
+];
+
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+}
+
+function wireThemeToggle(){
+  const btn = document.getElementById('themeToggle');
+  btn.onclick = () => {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    applyTheme();
+  };
+}
+
+if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches){
+  theme = 'light';
+}
+wireThemeToggle();
+applyTheme();
+wireMatchModal();
+
+function wireMatchModal(){
+  const overlay = document.getElementById('matchModal');
+  if (!overlay) return;
+  overlay.addEventListener('click', (e) => {
+    if (e.target.dataset && e.target.dataset.close) closeMatchModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMatchModal();
+  });
+}
+
+async function fetchWithFallback(url){
+  const attempts = [];
+  for (const proxy of PROXIES){
+    try{
+      const res = await fetch(proxy.build(url));
+      if (!res.ok){
+        attempts.push(`${proxy.name}: HTTP ${res.status}`);
+        continue;
+      }
+      const text = await res.text();
+      try{
+        return JSON.parse(text);
+      }catch(parseErr){
+        attempts.push(`${proxy.name}: bad JSON (${text.slice(0,80)})`);
+      }
+    }catch(err){
+      attempts.push(`${proxy.name}: ${err.message}`);
+    }
+  }
+  const combined = new Error('All proxies failed — ' + attempts.join(' | '));
+  combined.attempts = attempts;
+  throw combined;
+}
+
+function teamMap(teams){
+  const m = {};
+  teams.forEach(t => m[t.id] = t.short_name);
+  return m;
+}
+
+function teamFullNameMap(teams){
+  const m = {};
+  teams.forEach(t => m[t.id] = t.name || t.short_name);
+  return m;
+}
+
+function teamCodeMap(teams){
+  const m = {};
+  teams.forEach(t => m[t.id] = t.code);
+  return m;
+}
+
+function renderMeta(bootstrap){
+  const events = bootstrap.events || [];
+  const current = events.find(e => e.is_current) || events.find(e => e.is_next);
+  const box = document.getElementById('metaBox');
+  const label = current ? current.name : 'Season';
+  box.innerHTML = `<span class="gw">${label}</span><div>${bootstrap.elements.length.toLocaleString()} players tracked</div>`;
+}
+
+function renderTabs(){
+  const el = document.getElementById('tabs');
+  el.innerHTML = '';
+  TABS.forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'tab' + (t.id === activeTab ? ' active' : '');
+    d.textContent = t.label;
+    d.onclick = () => { activeTab = t.id; renderTabs(); renderTable(); };
+    el.appendChild(d);
+  });
+}
+
+function renderTable(){
+  const wrap = document.getElementById('tableWrap');
+  if (!DATA){ return; }
+  const tabDef = TABS.find(t => t.id === activeTab);
+  const teams = teamMap(DATA.teams);
+  const teamCodes = teamCodeMap(DATA.teams);
+
+  const controls = document.querySelector('.controls');
+  if (controls) controls.style.display = (tabDef.id === 'compare' || tabDef.id === 'matches') ? 'none' : '';
+
+  if (tabDef.special && tabDef.id === 'consistent'){
+    renderConsistentTable(wrap, teams);
+    return;
+  }
+
+  if (tabDef.special && tabDef.id === 'allplayers'){
+    renderAllPlayersTable(wrap, teams);
+    return;
+  }
+
+  if (tabDef.special && tabDef.id === 'compare'){
+    renderCompareView(wrap, teams, teamCodes);
+    return;
+  }
+
+  if (tabDef.special && tabDef.id === 'matches'){
+    renderMatchesView(wrap, teams, teamCodes);
+    return;
+  }
+
+  let rows = DATA.elements.map(p => ({
+    p,
+    posName: POS_NAMES[p.element_type],
+    team: teams[p.team] || '',
+    teamCode: teamCodes[p.team],
+    statVal: tabDef.stat(p),
+  }));
+
+  if (activePos !== 'ALL') rows = rows.filter(r => r.posName === activePos);
+  if (activeClub !== 'ALL') rows = rows.filter(r => r.team === activeClub);
+  if (searchTerm){
+    const q = searchTerm.toLowerCase();
+    rows = rows.filter(r =>
+      (r.p.web_name||'').toLowerCase().includes(q) ||
+      (r.team||'').toLowerCase().includes(q)
+    );
+  }
+
+  rows.sort((a,b) => b.statVal - a.statVal);
+  rows = rows.slice(0, 30);
+
+  if (!rows.length){
+    wrap.innerHTML = '<div class="state">No players match that filter.</div>';
+    return;
+  }
+
+  const body = rows.map((r, i) => {
+    const price = (r.p.now_cost/10).toFixed(1);
+    const rankClass = i < 3 ? 'rank top' : 'rank';
+    return `
+      <tr>
+        <td class="${rankClass}">${i+1}</td>
+        <td>
+          <div class="player-cell">
+            ${jerseyIcon(r.team, r.teamCode)}
+            <div>
+              <div class="pname">${r.p.web_name}</div>
+              <div class="pteam">${r.team} · ${r.posName}</div>
+            </div>
+          </div>
+        </td>
+        <td class="price">£${price}m</td>
+        <td class="stat-main">${tabDef.fmt(r.statVal)}${tabDef.unit ? ' ' + tabDef.unit : ''}</td>
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Player</th>
+          <th class="num">Price</th>
+          <th class="num">${tabDef.label}</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
+function renderConsistentTable(wrap, teams){
+  if (DATA.weekly === undefined){
+    wrap.innerHTML = '<div class="state">Loading weekly gameweek breakdown…</div>';
+    return;
+  }
+  const finished = DATA.finishedEvents || [];
+  if (!finished.length){
+    wrap.innerHTML = '<div class="state">No completed gameweeks yet this season.</div>';
+    return;
+  }
+  const weekly = DATA.weekly || {};
+  const fixtures = DATA.fixtures || [];
+  const teamCodes = teamCodeMap(DATA.teams);
+  const THRESHOLD = 3;
+
+  const lastFinished = Math.max(...finished);
+  const upcomingIds = nextEventIds(DATA, lastFinished, 5);
+
+  let rows = DATA.elements.map(p => {
+    const perWeek = finished.map(ev => (weekly[p.id] && weekly[p.id][ev]) ? weekly[p.id][ev].pts : 0);
+    const perWeekMinutes = finished.map(ev => (weekly[p.id] && weekly[p.id][ev]) ? weekly[p.id][ev].min : 0);
+    const perWeekFixtures = finished.map(ev => fixturesForTeamInEvent(fixtures, p.team, ev));
+    const nextFixtures = upcomingIds.map(id => fixturesForTeamInEvent(fixtures, p.team, id));
+    return {
+      p,
+      posName: POS_NAMES[p.element_type],
+      team: teams[p.team] || '',
+      teamCode: teamCodes[p.team],
+      perWeek,
+      perWeekMinutes,
+      perWeekFixtures,
+      minWeek: Math.min(...perWeek),
+      nextFixtures,
+    };
+  });
+
+  rows = rows.filter(r => r.minWeek >= THRESHOLD);
+
+  if (activePos !== 'ALL') rows = rows.filter(r => r.posName === activePos);
+  if (activeClub !== 'ALL') rows = rows.filter(r => r.team === activeClub);
+  if (searchTerm){
+    const q = searchTerm.toLowerCase();
+    rows = rows.filter(r =>
+      (r.p.web_name||'').toLowerCase().includes(q) ||
+      (r.team||'').toLowerCase().includes(q)
+    );
+  }
+
+  rows.sort((a,b) => b.p.total_points - a.p.total_points);
+  rows = rows.slice(0, 30);
+
+  if (!rows.length){
+    wrap.innerHTML = `<div class="state">No players have scored ${THRESHOLD}+ points in every gameweek so far (${finished.length} completed).</div>`;
+    return;
+  }
+
+  const weekHeaders = finished.map(ev => `<th class="num">GW${ev}</th>`).join('');
+  const nextHeaders = upcomingIds.map(id => `<th class="num">GW${id}</th>`).join('');
+  const body = rows.map((r, i) => {
+    const price = (r.p.now_cost/10).toFixed(1);
+    const rankClass = i < 3 ? 'rank top' : 'rank';
+    const weekCells = r.perWeek.map((v, idx) => {
+      const played = r.perWeekMinutes[idx] > 0;
+      return `
+      <td class="num gw-cell" style="font-family:'IBM Plex Mono',monospace;">
+        <div class="gw-pts">${played ? v : '&nbsp;'}</div>
+        <div class="fixture-cell" style="margin-top:3px;">${fixtureChips(r.perWeekFixtures[idx], r.p.team, teams, true)}</div>
+      </td>`;
+    }).join('');
+    const nextCells = r.nextFixtures.map(fx => {
+      const chips = fixtureChips(fx, r.p.team, teams);
+      const playerFullName = `${r.p.first_name || ''} ${r.p.second_name || ''}`.trim();
+      const lsBadges = (fx || []).map(f => {
+        const oppShort = f.team_h === r.p.team ? teams[f.team_a] : teams[f.team_h];
+        return lastSeasonVsOpponentBadge(playerFullName, oppShort);
+      }).filter(Boolean).join(' ');
+      return `<td class="num fixture-cell">${chips}${lsBadges ? `<div style="margin-top:3px;">${lsBadges}</div>` : ''}</td>`;
+    }).join('');
+    return `
+      <tr>
+        <td class="${rankClass}">${i+1}</td>
+        <td>
+          <div class="player-cell">
+            ${jerseyIcon(r.team, r.teamCode)}
+            <div>
+              <div class="pname">${r.p.web_name}</div>
+              <div class="pteam">${r.team} · ${r.posName}</div>
+            </div>
+          </div>
+        </td>
+        <td class="price">£${price}m</td>
+        ${weekCells}
+        <td class="stat-main">${r.p.total_points}</td>
+        ${nextCells}
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table class="gw-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Player</th>
+          <th class="num">Price</th>
+          ${weekHeaders}
+          <th class="num">Total</th>
+          ${nextHeaders}
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
+function renderAllPlayersTable(wrap, teams){
+  if (DATA.weekly === undefined){
+    wrap.innerHTML = '<div class="state">Loading weekly gameweek breakdown…</div>';
+    return;
+  }
+  const finished = DATA.finishedEvents || [];
+  if (!finished.length){
+    wrap.innerHTML = '<div class="state">No completed gameweeks yet this season.</div>';
+    return;
+  }
+  const weekly = DATA.weekly || {};
+  const fixtures = DATA.fixtures || [];
+  const teamCodes = teamCodeMap(DATA.teams);
+
+  const lastFinished = Math.max(...finished);
+  const upcomingIds = nextEventIds(DATA, lastFinished, 5);
+
+  let rows = DATA.elements.map(p => {
+    const perWeek = finished.map(ev => (weekly[p.id] && weekly[p.id][ev]) ? weekly[p.id][ev].pts : 0);
+    const perWeekMinutes = finished.map(ev => (weekly[p.id] && weekly[p.id][ev]) ? weekly[p.id][ev].min : 0);
+    const perWeekFixtures = finished.map(ev => fixturesForTeamInEvent(fixtures, p.team, ev));
+    const nextFixtures = upcomingIds.map(id => fixturesForTeamInEvent(fixtures, p.team, id));
+    return {
+      p,
+      posName: POS_NAMES[p.element_type],
+      team: teams[p.team] || '',
+      teamCode: teamCodes[p.team],
+      perWeek,
+      perWeekMinutes,
+      perWeekFixtures,
+      nextFixtures,
+    };
+  });
+
+  if (activePos !== 'ALL') rows = rows.filter(r => r.posName === activePos);
+  if (activeClub !== 'ALL') rows = rows.filter(r => r.team === activeClub);
+  if (searchTerm){
+    const q = searchTerm.toLowerCase();
+    rows = rows.filter(r =>
+      (r.p.web_name||'').toLowerCase().includes(q) ||
+      (r.team||'').toLowerCase().includes(q)
+    );
+  }
+
+  rows.sort((a,b) => b.p.total_points - a.p.total_points);
+
+  if (!rows.length){
+    wrap.innerHTML = '<div class="state">No players match that filter.</div>';
+    return;
+  }
+
+  const weekHeaders = finished.map(ev => `<th class="num">GW${ev}</th>`).join('');
+  const nextHeaders = upcomingIds.map(id => `<th class="num">GW${id}</th>`).join('');
+  const body = rows.map((r, i) => {
+    const price = (r.p.now_cost/10).toFixed(1);
+    const rankClass = i < 3 ? 'rank top' : 'rank';
+    const weekCells = r.perWeek.map((v, idx) => {
+      const played = r.perWeekMinutes[idx] > 0;
+      return `
+      <td class="num gw-cell" style="font-family:'IBM Plex Mono',monospace;">
+        <div class="gw-pts">${played ? v : '&nbsp;'}</div>
+        <div class="fixture-cell" style="margin-top:3px;">${fixtureChips(r.perWeekFixtures[idx], r.p.team, teams, true)}</div>
+      </td>`;
+    }).join('');
+    const nextCells = r.nextFixtures.map(fx => {
+      const chips = fixtureChips(fx, r.p.team, teams);
+      const playerFullName = `${r.p.first_name || ''} ${r.p.second_name || ''}`.trim();
+      const lsBadges = (fx || []).map(f => {
+        const oppShort = f.team_h === r.p.team ? teams[f.team_a] : teams[f.team_h];
+        return lastSeasonVsOpponentBadge(playerFullName, oppShort);
+      }).filter(Boolean).join(' ');
+      return `<td class="num fixture-cell">${chips}${lsBadges ? `<div style="margin-top:3px;">${lsBadges}</div>` : ''}</td>`;
+    }).join('');
+    return `
+      <tr>
+        <td class="${rankClass}">${i+1}</td>
+        <td>
+          <div class="player-cell">
+            ${jerseyIcon(r.team, r.teamCode)}
+            <div>
+              <div class="pname">${r.p.web_name}</div>
+              <div class="pteam">${r.team} · ${r.posName}</div>
+            </div>
+          </div>
+        </td>
+        <td class="price">£${price}m</td>
+        ${weekCells}
+        <td class="stat-main">${r.p.total_points}</td>
+        ${nextCells}
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table class="gw-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Player</th>
+          <th class="num">Price</th>
+          ${weekHeaders}
+          <th class="num">Total</th>
+          ${nextHeaders}
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
+function playerOptionsHtml(teams, filterPos, filterClub){
+  let list = DATA.elements.slice();
+  if (filterPos && filterPos !== 'ALL') list = list.filter(p => POS_NAMES[p.element_type] === filterPos);
+  if (filterClub && filterClub !== 'ALL') list = list.filter(p => (teams[p.team]||'') === filterClub);
+
+  if (!filterPos || filterPos === 'ALL'){
+    const groups = { GKP:[], DEF:[], MID:[], FWD:[] };
+    list.forEach(p => groups[POS_NAMES[p.element_type]].push(p));
+    Object.values(groups).forEach(l => l.sort((a,b) => b.total_points - a.total_points));
+    return Object.entries(groups).map(([pos, l]) => `
+      <optgroup label="${pos}">
+        ${l.map(p => `<option value="${p.id}">${p.web_name} — ${teams[p.team]||''}</option>`).join('')}
+      </optgroup>`).join('');
+  }
+
+  list.sort((a,b) => b.total_points - a.total_points);
+  return list.map(p => `<option value="${p.id}">${p.web_name} — ${teams[p.team]||''}</option>`).join('');
+}
+
+function compareClubOptionsHtml(activeClub){
+  const clubs = (DATA.teams || [])
+    .map(t => t.short_name)
+    .sort((a,b) => a.localeCompare(b));
+  return '<option value="ALL">All Clubs</option>' +
+    clubs.map(c => `<option value="${c}"${c === activeClub ? ' selected' : ''}>${c}</option>`).join('');
+}
+
+function posFilterButtonsHtml(side, activeFilter, clubSelectHtml){
+  const positions = ['ALL','GKP','DEF','MID','FWD'];
+  return `<div class="compare-pos-filter" data-side="${side}">
+    ${positions.map(pos => `<button type="button" class="compare-pos-btn${pos===activeFilter?' active':''}" data-pos="${pos}">${pos}</button>`).join('')}
+    ${clubSelectHtml || ''}
+  </div>`;
+}
+
+function compareSideMatches(teams, p, pos, club){
+  if (!p) return false;
+  const posOk = pos === 'ALL' || POS_NAMES[p.element_type] === pos;
+  const clubOk = club === 'ALL' || (teams[p.team]||'') === club;
+  return posOk && clubOk;
+}
+
+function reselectComparePlayer(side, teams){
+  const pos = side === 'A' ? compareFilterA : compareFilterB;
+  const club = side === 'A' ? compareClubA : compareClubB;
+  const currentId = side === 'A' ? compareIdA : compareIdB;
+  const current = DATA.elements.find(p => p.id === currentId);
+  if (compareSideMatches(teams, current, pos, club)) return;
+  const filtered = DATA.elements
+    .filter(p => compareSideMatches(teams, p, pos, club))
+    .sort((a,b) => b.total_points - a.total_points);
+  const newId = filtered[0] ? filtered[0].id : null;
+  if (side === 'A') compareIdA = newId; else compareIdB = newId;
+}
+
+function applyCompareFilter(side, pos){
+  const teams = teamMap(DATA.teams);
+  if (side === 'A') compareFilterA = pos; else compareFilterB = pos;
+  reselectComparePlayer(side, teams);
+  renderTable();
+}
+
+function applyCompareClub(side, club){
+  const teams = teamMap(DATA.teams);
+  if (side === 'A') compareClubA = club; else compareClubB = club;
+  reselectComparePlayer(side, teams);
+  renderTable();
+}
+
+function resetCompare(){
+  compareFilterA = 'ALL';
+  compareFilterB = 'ALL';
+  compareClubA = 'ALL';
+  compareClubB = 'ALL';
+  const topTwo = [...DATA.elements].sort((a,b) => b.total_points - a.total_points).slice(0,2);
+  compareIdA = topTwo[0] ? topTwo[0].id : null;
+  compareIdB = topTwo[1] ? topTwo[1].id : null;
+  renderTable();
+}
+
+function renderCompareView(wrap, teams, teamCodes){
+  if (compareIdA == null || compareIdB == null){
+    const topTwo = [...DATA.elements].sort((a,b) => b.total_points - a.total_points).slice(0,2);
+    if (compareIdA == null) compareIdA = topTwo[0] && topTwo[0].id;
+    if (compareIdB == null) compareIdB = topTwo[1] && topTwo[1].id;
+  }
+
+  const optionsHtmlA = playerOptionsHtml(teams, compareFilterA, compareClubA);
+  const optionsHtmlB = playerOptionsHtml(teams, compareFilterB, compareClubB);
+  const clubOptionsA = compareClubOptionsHtml(compareClubA);
+  const clubOptionsB = compareClubOptionsHtml(compareClubB);
+  const playerA = DATA.elements.find(p => p.id === compareIdA);
+  const playerB = DATA.elements.find(p => p.id === compareIdB);
+
+  const playerCardHtml = (p) => {
+    if (!p) return `<div class="compare-empty">Choose a player</div>`;
+    const price = (p.now_cost/10).toFixed(1);
+    return `
+      <div class="compare-player">
+        ${jerseyIcon(teams[p.team]||'', teamCodes[p.team])}
+        <div class="compare-name">${p.web_name}</div>
+        <div class="compare-sub">${teams[p.team]||''} · ${POS_NAMES[p.element_type]} · £${price}m</div>
+      </div>`;
+  };
+
+  const rowsHtml = COMPARE_STATS.map(stat => {
+    if (!playerA || !playerB){
+      return `<tr><td class="num"></td><td class="compare-stat-label">${stat.label}</td><td class="num"></td></tr>`;
+    }
+    const vA = stat.get(playerA);
+    const vB = stat.get(playerB);
+    let clsA = '', clsB = '';
+    if (stat.higher !== undefined && vA !== vB){
+      const aWins = stat.higher ? vA > vB : vA < vB;
+      clsA = aWins ? 'stat-win' : 'stat-lose';
+      clsB = aWins ? 'stat-lose' : 'stat-win';
+    }
+    return `
+      <tr>
+        <td class="num ${clsA}">${stat.fmt(vA)}</td>
+        <td class="compare-stat-label">${stat.label}</td>
+        <td class="num ${clsB}">${stat.fmt(vB)}</td>
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="compare-wrap">
+      <div class="compare-toolbar">
+        <button class="reset-btn" id="compareReset" type="button" title="Reset comparison" aria-label="Reset comparison">↻</button>
+      </div>
+      <div class="compare-pickers">
+        <div class="compare-col">
+          ${posFilterButtonsHtml('A', compareFilterA, `<select class="compare-club-select" id="compareClubA">${clubOptionsA}</select>`)}
+          <select class="compare-select" id="compareSelectA">${optionsHtmlA}</select>
+        </div>
+        <div class="vs-badge">VS</div>
+        <div class="compare-col">
+          ${posFilterButtonsHtml('B', compareFilterB, `<select class="compare-club-select" id="compareClubB">${clubOptionsB}</select>`)}
+          <select class="compare-select" id="compareSelectB">${optionsHtmlB}</select>
+        </div>
+      </div>
+      <div class="compare-cards">
+        ${playerCardHtml(playerA)}
+        <div></div>
+        ${playerCardHtml(playerB)}
+      </div>
+      <table class="compare-table">
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('compareSelectA').value = compareIdA;
+  document.getElementById('compareSelectB').value = compareIdB;
+  document.getElementById('compareSelectA').onchange = (e) => {
+    compareIdA = parseInt(e.target.value, 10);
+    renderTable();
+  };
+  document.getElementById('compareSelectB').onchange = (e) => {
+    compareIdB = parseInt(e.target.value, 10);
+    renderTable();
+  };
+  document.querySelectorAll('.compare-pos-filter[data-side="A"] .compare-pos-btn').forEach(btn => {
+    btn.onclick = () => applyCompareFilter('A', btn.dataset.pos);
+  });
+  document.querySelectorAll('.compare-pos-filter[data-side="B"] .compare-pos-btn').forEach(btn => {
+    btn.onclick = () => applyCompareFilter('B', btn.dataset.pos);
+  });
+  document.getElementById('compareClubA').onchange = (e) => applyCompareClub('A', e.target.value);
+  document.getElementById('compareClubB').onchange = (e) => applyCompareClub('B', e.target.value);
+  document.getElementById('compareReset').onclick = () => resetCompare();
+}
+
+function fixtureStatMap(fixture){
+  const map = {};
+  (fixture.stats || []).forEach(s => {
+    const combined = {};
+    (s.h || []).forEach(e => { combined[e.element] = e.value; });
+    (s.a || []).forEach(e => { combined[e.element] = e.value; });
+    map[s.identifier] = combined;
+  });
+  return map;
+}
+
+function playersById(elements){
+  const m = {};
+  elements.forEach(p => { m[p.id] = p; });
+  return m;
+}
+
+function formatKickoff(iso){
+  if (!iso) return 'Kickoff TBC';
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+}
+
+function formatDateHeader(iso){
+  if (!iso) return 'Date TBC';
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { weekday:'long', day:'numeric', month:'short', year:'numeric' });
+}
+
+function extractMatchEvents(fixture, players) {
+  const homeEvents = [];
+  const awayEvents = [];
+
+  if (!fixture.stats) return { homeEvents, awayEvents };
+
+  const getStat = (id) => fixture.stats.find(s => s.identifier === id) || { h: [], a: [] };
+
+  const goals = getStat('goals_scored');
+  const assists = getStat('assists');
+  const ownGoals = getStat('own_goals');
+  const redCards = getStat('red_cards');
+
+  (goals.h || []).forEach(item => {
+    const p = players[item.element];
+    if (p) {
+      for (let i = 0; i < item.value; i++) {
+        homeEvents.push({ type: 'goal', name: p.web_name });
+      }
+    }
+  });
+
+  (assists.h || []).forEach(item => {
+    const p = players[item.element];
+    if (p) homeEvents.push({ type: 'assist', name: p.web_name, count: item.value });
+  });
+
+  (ownGoals.h || []).forEach(item => {
+    const p = players[item.element];
+    if (p) {
+      for (let i = 0; i < item.value; i++) {
+        homeEvents.push({ type: 'og', name: p.web_name });
+      }
+    }
+  });
+
+  (redCards.h || []).forEach(item => {
+    const p = players[item.element];
+    if (p) homeEvents.push({ type: 'red', name: p.web_name });
+  });
+
+  (goals.a || []).forEach(item => {
+    const p = players[item.element];
+    if (p) {
+      for (let i = 0; i < item.value; i++) {
+        awayEvents.push({ type: 'goal', name: p.web_name });
+      }
+    }
+  });
+
+  (assists.a || []).forEach(item => {
+    const p = players[item.element];
+    if (p) awayEvents.push({ type: 'assist', name: p.web_name, count: item.value });
+  });
+
+  (ownGoals.a || []).forEach(item => {
+    const p = players[item.element];
+    if (p) {
+      for (let i = 0; i < item.value; i++) {
+        awayEvents.push({ type: 'og', name: p.web_name });
+      }
+    }
+  });
+
+  (redCards.a || []).forEach(item => {
+    const p = players[item.element];
+    if (p) awayEvents.push({ type: 'red', name: p.web_name });
+  });
+
+  return { homeEvents, awayEvents };
+}
+
+function extractBonusList(fixture, players) {
+  if (!fixture.stats) return [];
+  const statMap = fixtureStatMap(fixture);
+  const bpsMap = statMap.bps || {};
+  const bonusMap = statMap.bonus || {};
+
+  let list = [];
+  Object.keys(bpsMap).forEach(id => {
+    const p = players[id];
+    if (p) {
+      list.push({
+        player: p,
+        bps: bpsMap[id],
+        officialBonus: bonusMap[id] || 0,
+        bonus: 0
+      });
+    }
+  });
+
+  if (list.length === 0) return [];
+
+  list.sort((a, b) => b.bps - a.bps);
+
+  const hasOfficialBonus = list.some(x => x.officialBonus > 0);
+
+  if (hasOfficialBonus) {
+    list.forEach(item => { item.bonus = item.officialBonus; });
+  } else {
+    let currentBonusPool = [3, 2, 1];
+    let poolIndex = 0;
+    let i = 0;
+    while (i < list.length && poolIndex < currentBonusPool.length) {
+      let j = i;
+      while (j < list.length && list[j].bps === list[i].bps) {
+        j++;
+      }
+      const groupSize = j - i;
+      const bonusForGroup = currentBonusPool[poolIndex] || 0;
+
+      for (let k = i; k < j; k++) {
+        list[k].bonus = bonusForGroup;
+      }
+
+      poolIndex += groupSize;
+      i = j;
+    }
+  }
+
+  return list.slice(0, 3);
+}
+
+function matchStatBadges(row){
+  const parts = [];
+  if (row.goals)   parts.push(`<span class="mstat mstat-goal">⚽ ${row.goals>1?'×'+row.goals:''}</span>`);
+  if (row.assists) parts.push(`<span class="mstat mstat-assist">🅰 ${row.assists>1?'×'+row.assists:''}</span>`);
+  if (row.owng)    parts.push(`<span class="mstat mstat-owng">OG</span>`);
+  if (row.pens)    parts.push(`<span class="mstat mstat-save">PEN SAVE</span>`);
+  if (row.penm)    parts.push(`<span class="mstat mstat-owng">PEN MISS</span>`);
+  if (row.saves)   parts.push(`<span class="mstat mstat-save">${row.saves} SV</span>`);
+  if (row.yellow)  parts.push(`<span class="mstat mstat-yellow">🟨</span>`);
+  if (row.red)     parts.push(`<span class="mstat mstat-red">🟥</span>`);
+  if (row.bonus)   parts.push(`<span class="mstat mstat-bonus">B${row.bonus}</span>`);
+  return parts.join('');
+}
+
+function isMobileView(){
+  return window.matchMedia && window.matchMedia('(max-width:640px)').matches;
+}
+
+// Builds the two-column full player list for a match. Returns an HTML string.
+function buildMatchFullList(fixture, teams, teamCodes, players, weekly){
+  const homeShort = teams[fixture.team_h] || '?';
+  const awayShort = teams[fixture.team_a] || '?';
+  const statMap = fixtureStatMap(fixture);
+  const bpsMap = statMap.bps || {};
+  let ids = Object.keys(bpsMap).map(Number);
+  if (!ids.length) {
+    const seen = new Set();
+    Object.values(statMap).forEach(m => Object.keys(m).forEach(id => seen.add(Number(id))));
+    ids = [...seen];
+  }
+
+  const rows = ids.map(id => {
+    const p = players[id];
+    if (!p) return null;
+    const pts = (weekly[id] && weekly[id][fixture.event]) ? weekly[id][fixture.event].pts : 0;
+    return {
+      p,
+      pts,
+      goals:   (statMap.goals_scored || {})[id] || 0,
+      assists: (statMap.assists || {})[id] || 0,
+      bonus:   (statMap.bonus || {})[id] || 0,
+      yellow:  (statMap.yellow_cards || {})[id] || 0,
+      red:     (statMap.red_cards || {})[id] || 0,
+      saves:   (statMap.saves || {})[id] || 0,
+      owng:    (statMap.own_goals || {})[id] || 0,
+      penm:    (statMap.penalties_missed || {})[id] || 0,
+      pens:    (statMap.penalties_saved || {})[id] || 0,
+    };
+  }).filter(Boolean);
+
+  const homeRows = rows.filter(r => r.p.team === fixture.team_h).sort((a,b) => b.pts - a.pts);
+  const awayRows = rows.filter(r => r.p.team === fixture.team_a).sort((a,b) => b.pts - a.pts);
+
+  const playerCellHtml = (r) => `
+    <div class="match-player-cell" style="padding:0;">
+      ${jerseyIcon(teams[r.p.team]||'', teamCodes[r.p.team])}
+      <span class="match-player-name">${r.p.web_name}</span>
+      <span class="match-player-badges">${matchStatBadges(r)}</span>
+    </div>
+    <div class="num match-pts" style="padding:0;">${r.pts}</div>`;
+
+  const homeColHtml = homeRows.map(r => `<div class="fulllist-row">${playerCellHtml(r)}</div>`).join('');
+  const awayColHtml = awayRows.map(r => `<div class="fulllist-row">${playerCellHtml(r)}</div>`).join('');
+
+  return `
+    <div class="match-fulllist-container" style="margin-top:12px;">
+      <div class="fulllist-col fulllist-col-home">
+        <div class="fulllist-club-header">${homeShort}</div>
+        ${homeColHtml || '<div class="no-events" style="text-align:right;">No data</div>'}
+      </div>
+      <div class="fulllist-divider"></div>
+      <div class="fulllist-col fulllist-col-away">
+        <div class="fulllist-club-header">${awayShort}</div>
+        ${awayColHtml || '<div class="no-events">No data</div>'}
+      </div>
+    </div>
+  `;
+}
+
+function matchCardHtml(fixture, teams, teamFullNames, teamCodes, players, weekly){
+  const homeShort = teamFullNames[fixture.team_h] || teams[fixture.team_h] || '?';
+  const awayShort = teamFullNames[fixture.team_a] || teams[fixture.team_a] || '?';
+  const homeCode = teamCodes[fixture.team_h];
+  const awayCode = teamCodes[fixture.team_a];
+
+  const hasScore = fixture.started && fixture.team_h_score != null && fixture.team_a_score != null;
+  const scoreHtml = hasScore
+    ? `<span>${fixture.team_h_score}</span><span style="opacity:0.35;margin:0 4px;">|</span><span>${fixture.team_a_score}</span>`
+    : `<span style="font-size:12px;opacity:0.6;">vs</span>`;
+
+  let statusLabel = formatKickoff(fixture.kickoff_time);
+  let statusClass = '';
+  if (fixture.finished){ statusLabel = 'FT'; }
+  else if (fixture.started){ statusLabel = 'LIVE'; statusClass = 'live'; }
+
+  const { homeEvents, awayEvents } = extractMatchEvents(fixture, players);
+
+  const homeEventsHtml = homeEvents.map(e => {
+    if (e.type === 'goal') return `<div class="event-row"><span>${e.name}</span><span class="event-icon-ball">⚽</span></div>`;
+    if (e.type === 'og') return `<div class="event-row"><span>${e.name}</span><span class="event-icon-og">⚽</span></div>`;
+    if (e.type === 'assist') return `<div class="event-row"><span>${e.name}</span>${'<span class="badge-assist">A</span>'.repeat(e.count||1)}</div>`;
+    if (e.type === 'red') return `<div class="event-row"><span>${e.name}</span><span class="mstat mstat-red">🟥</span></div>`;
+    return '';
+  }).join('');
+
+  const awayEventsHtml = awayEvents.map(e => {
+    if (e.type === 'goal') return `<div class="event-row"><span class="event-icon-ball">⚽</span><span>${e.name}</span></div>`;
+    if (e.type === 'og') return `<div class="event-row"><span class="event-icon-og">⚽</span><span>${e.name}</span></div>`;
+    if (e.type === 'assist') return `<div class="event-row">${'<span class="badge-assist">A</span>'.repeat(e.count||1)}<span>${e.name}</span></div>`;
+    if (e.type === 'red') return `<div class="event-row"><span class="mstat mstat-red">🟥</span><span>${e.name}</span></div>`;
+    return '';
+  }).join('');
+
+  const noEvents = homeEvents.length === 0 && awayEvents.length === 0;
+  const eventsContainerHtml = noEvents
+    ? `<div class="no-events">${fixture.started ? 'No goals or assists yet' : statusLabel}</div>`
+    : `
+      <div class="match-events-container">
+        <div class="events-col events-home">${homeEventsHtml}</div>
+        <div class="events-divider"></div>
+        <div class="events-col events-away">${awayEventsHtml}</div>
+      </div>
+    `;
+
+  const bonusList = extractBonusList(fixture, players);
+  const bonusRowsHtml = bonusList.map(b => {
+    let badgeClass = 'muted';
+    if (b.bonus === 3) badgeClass = 'gold';
+    else if (b.bonus === 2) badgeClass = 'silver';
+    else if (b.bonus === 1) badgeClass = 'bronze';
+
+    return `
+      <div class="bonus-row">
+        <span class="bonus-badge ${badgeClass}">${b.bonus || '-'}</span>
+        <span class="bonus-name">${b.player.web_name} <span style="font-size:11px; opacity:0.5; font-family:'IBM Plex Mono',monospace;">(${b.bps} BPS)</span></span>
+        <span class="bonus-bps">+${b.bonus}</span>
+      </div>
+    `;
+  }).join('');
+
+  const bonusBoxHtml = bonusList.length > 0 ? `
+    <div class="match-bonus-box">
+      <div>
+        <div class="bonus-title">🏆 Bonus</div>
+        <div class="bonus-list">${bonusRowsHtml}</div>
+      </div>
+      ${fixture.started ? `
+        <button class="match-more-btn" data-fixture-id="${fixture.id}">
+          More ${matchesOpenIds.has(fixture.id) ? '▴' : '▾'}
+        </button>
+      ` : ''}
+    </div>
+  ` : (fixture.started ? `
+    <div class="match-bonus-box" style="justify-content:center; text-align:center;">
+      <div style="font-size:12px; opacity:0.5;">Bonus points pending</div>
+      <button class="match-more-btn" data-fixture-id="${fixture.id}" style="justify-content:center;">
+        More ${matchesOpenIds.has(fixture.id) ? '▴' : '▾'}
+      </button>
+    </div>
+  ` : '');
+
+  const isOpen = matchesOpenIds.has(fixture.id);
+  // On mobile the full list is shown in a popup modal, not inline.
+  let expandedTableHtml = '';
+  if (fixture.started && isOpen && !isMobileView()) {
+    expandedTableHtml = buildMatchFullList(fixture, teams, teamCodes, players, weekly);
+  }
+
+  return `
+    <div class="match-card-wrapper">
+      <div class="match-card-new ${!bonusBoxHtml ? 'no-bonus' : ''}">
+        <div class="match-main-box">
+          <div class="match-header-new">
+            <div class="team-side team-home">
+              <span class="team-name">${homeShort}</span>
+              ${jerseyIcon(teams[fixture.team_h], homeCode)}
+            </div>
+            <div class="score-pill-wrap">
+              <div class="score-pill">${scoreHtml}</div>
+              ${fixture.started ? `<span class="match-status ${statusClass}">${statusLabel}</span>` : ''}
+            </div>
+            <div class="team-side team-away">
+              ${jerseyIcon(teams[fixture.team_a], awayCode)}
+              <span class="team-name">${awayShort}</span>
+            </div>
+          </div>
+          ${eventsContainerHtml}
+          ${expandedTableHtml}
+        </div>
+        ${bonusBoxHtml}
+      </div>
+    </div>
+  `;
+}
+
+function renderMatchesView(wrap, teams, teamCodes){
+  if (!DATA.fixtures){
+    wrap.innerHTML = `<div class="state">Loading fixture and match stats…</div>`;
+    return;
+  }
+
+  const events = (DATA.events || []).slice().sort((a,b) => a.id - b.id);
+  const fixtures = DATA.fixtures || [];
+  const weekly = DATA.weekly || {};
+  const players = playersById(DATA.elements);
+  const teamFullNames = teamFullNameMap(DATA.teams);
+
+  if (matchesEventId == null){
+    const current = events.find(e => e.is_current) || [...events].reverse().find(e => e.finished) || events[0];
+    matchesEventId = current ? current.id : null;
+  }
+
+  const eventOptions = events.map(e =>
+    `<option value="${e.id}" ${e.id === matchesEventId ? 'selected' : ''}>${e.name}</option>`
+  ).join('');
+
+  const fixturesForEvent = fixtures
+    .filter(f => f.event === matchesEventId)
+    .sort((a,b) => new Date(a.kickoff_time||0) - new Date(b.kickoff_time||0));
+
+  if (!fixturesForEvent.length) {
+    wrap.innerHTML = `
+      <div class="matches-wrap">
+        <div class="matches-header">
+          <select class="compare-select" id="matchesEventSelect">${eventOptions}</select>
+        </div>
+        <div class="state">No fixtures found for this gameweek.</div>
+      </div>`;
+    document.getElementById('matchesEventSelect').onchange = (e) => {
+      matchesEventId = parseInt(e.target.value, 10);
+      renderTable();
+    };
+    return;
+  }
+
+  // Group fixtures by kickoff date
+  const groupedByDate = {};
+  fixturesForEvent.forEach(f => {
+    const dateKey = formatDateHeader(f.kickoff_time);
+    if (!groupedByDate[dateKey]) groupedByDate[dateKey] = [];
+    groupedByDate[dateKey].push(f);
+  });
+
+  const contentHtml = Object.entries(groupedByDate).map(([dateKey, matches]) => {
+    const isCollapsed = collapsedDates.has(dateKey);
+    const matchCardsHtml = matches
+      .map(f => matchCardHtml(f, teams, teamFullNames, teamCodes, players, weekly))
+      .join('');
+
+    return `
+      <div class="date-group">
+        <div class="date-header" data-date="${dateKey}">
+          <span>📅 ${dateKey} (${matches.length} ${matches.length === 1 ? 'match' : 'matches'})</span>
+          <span class="toggle-icon">${isCollapsed ? 'Show ▲' : 'Hide ▼'}</span>
+        </div>
+        <div class="date-matches ${isCollapsed ? 'collapsed' : ''}">
+          ${matchCardsHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="matches-wrap">
+      <div class="matches-header">
+        <select class="compare-select" id="matchesEventSelect">${eventOptions}</select>
+      </div>
+      <div>${contentHtml}</div>
+    </div>`;
+
+  document.getElementById('matchesEventSelect').onchange = (e) => {
+    matchesEventId = parseInt(e.target.value, 10);
+    renderTable();
+  };
+
+  document.querySelectorAll('.date-header').forEach(hdr => {
+    hdr.onclick = () => {
+      const dateKey = hdr.dataset.date;
+      if (collapsedDates.has(dateKey)) {
+        collapsedDates.delete(dateKey);
+      } else {
+        collapsedDates.add(dateKey);
+      }
+      renderTable();
+    };
+  });
+
+  document.querySelectorAll('.match-more-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const id = parseInt(btn.dataset.fixtureId, 10);
+      if (isMobileView()){
+        openMatchModal(id, teams, teamCodes);
+        return;
+      }
+      if (matchesOpenIds.has(id)) matchesOpenIds.delete(id);
+      else matchesOpenIds.add(id);
+      renderTable();
+    };
+  });
+}
+
+function openMatchModal(fixtureId, teams, teamCodes){
+  if (!DATA || !DATA.fixtures) return;
+  const fixture = DATA.fixtures.find(f => f.id === fixtureId);
+  if (!fixture) return;
+  const players = playersById(DATA.elements);
+  const weekly = DATA.weekly || {};
+  const homeShort = teams[fixture.team_h] || '?';
+  const awayShort = teams[fixture.team_a] || '?';
+  const scoreTxt = (fixture.team_h_score != null && fixture.team_a_score != null)
+    ? `${fixture.team_h_score} - ${fixture.team_a_score}` : 'vs';
+  const listHtml = buildMatchFullList(fixture, teams, teamCodes, players, weekly);
+
+  const overlay = document.getElementById('matchModal');
+  if (!overlay) return;
+  overlay.querySelector('.match-modal-gw').textContent = fixture.event ? `GW${fixture.event}` : '';
+  overlay.querySelector('.match-modal-title').textContent = `${homeShort} ${scoreTxt} ${awayShort}`;
+  overlay.querySelector('.match-modal-body').innerHTML = listHtml;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMatchModal(){
+  const overlay = document.getElementById('matchModal');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function populateClubFilter(){
+  const sel = document.getElementById('clubFilter');
+  if (!sel || !DATA) return;
+  const clubs = (DATA.teams || [])
+    .map(t => t.short_name)
+    .sort((a,b) => a.localeCompare(b));
+  sel.innerHTML = '<option value="ALL">All Clubs</option>' +
+    clubs.map(c => `<option value="${c}"${c === activeClub ? ' selected' : ''}>${c}</option>`).join('');
+}
+
+function wireControls(){
+  document.querySelectorAll('.pos-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activePos = btn.dataset.pos;
+      renderTable();
+    };
+  });
+  populateClubFilter();
+  const clubSel = document.getElementById('clubFilter');
+  if (clubSel){
+    clubSel.onchange = e => {
+      activeClub = e.target.value;
+      renderTable();
+    };
+  }
+  document.getElementById('searchBox').addEventListener('input', e => {
+    searchTerm = e.target.value;
+    renderTable();
+  });
+  const resetBtn = document.getElementById('resetFilters');
+  if (resetBtn){
+    resetBtn.onclick = () => {
+      activePos = 'ALL';
+      activeClub = 'ALL';
+      searchTerm = '';
+      document.querySelectorAll('.pos-btn').forEach(b => b.classList.toggle('active', b.dataset.pos === 'ALL'));
+      if (clubSel) clubSel.value = 'ALL';
+      document.getElementById('searchBox').value = '';
+      renderTable();
+    };
+  }
+}
+
+async function fetchFixturesData(){
+  const url = 'https://fantasy.premierleague.com/api/fixtures/';
+  return await fetchWithFallback(url);
+}
+
+function fixturesForTeamInEvent(fixtures, teamId, eventId){
+  return fixtures.filter(f => f.event === eventId && (f.team_h === teamId || f.team_a === teamId));
+}
+
+function fixtureChips(fixtureList, teamId, teams, plain){
+  if (!fixtureList || !fixtureList.length){
+    return '<span class="fdr fdr-none">—</span>';
+  }
+  return fixtureList.map(f => {
+    const isHome = f.team_h === teamId;
+    const oppId = isHome ? f.team_a : f.team_h;
+    const oppName = teams[oppId] || '?';
+    const diff = isHome ? f.team_h_difficulty : f.team_a_difficulty;
+    const cls = plain ? 'fdr-plain' : `fdr-${diff||3}`;
+    return `<span class="fdr ${cls}">${oppName} ${isHome ? 'H' : 'A'}</span>`;
+  }).join('');
+}
+
+// Points a player scored against a given opponent (by short_name) last season
+// (2025/26), pulled from DATA.lastSeasonByName — see fetchLastSeasonData().
+// Matched by player NAME rather than FPL element id, because element ids are
+// reassigned across the whole player pool every season and are NOT stable
+// year to year (this matters most for players on newly-promoted teams, whose
+// current-season id may collide with an unrelated player's id from last season).
+function lastSeasonVsOpponentBadge(playerName, opponentShort){
+  const lastSeasonByName = (DATA && DATA.lastSeasonByName) || null;
+  if (!lastSeasonByName || !opponentShort || !playerName) return '';
+  const entries = lastSeasonByName[normalizeName(playerName)];
+  if (!entries || !entries.length) return '';
+  const matches = entries.filter(e => e.oppShort === opponentShort);
+  if (!matches.length) return '';
+  const totalPts = matches.reduce((sum, e) => sum + e.pts, 0);
+  const label = `${totalPts} pts`;
+  return `<span class="ls-vs-badge" title="Points vs ${opponentShort} last season (2025/26)">${label}</span>`;
+}
+
+
+function nextEventIds(bootstrap, afterEventId, count){
+  return (bootstrap.events || [])
+    .map(e => e.id)
+    .filter(id => id > afterEventId)
+    .sort((a,b) => a-b)
+    .slice(0, count);
+}
+
+async function fetchWeeklyData(bootstrap){
+  const now = new Date();
+  const finished = (bootstrap.events || [])
+    .filter(e => e.finished || (e.deadline_time && new Date(e.deadline_time) <= now))
+    .map(e => e.id);
+  const weekly = {};
+
+  await Promise.all(finished.map(async (ev) => {
+    const url = `https://fantasy.premierleague.com/api/event/${ev}/live/`;
+    const data = await fetchWithFallback(url);
+    (data.elements || []).forEach(el => {
+      if (!weekly[el.id]) weekly[el.id] = {};
+      const stats = el.stats || {};
+      weekly[el.id][ev] = {
+        pts: typeof stats.total_points === 'number' ? stats.total_points : 0,
+        min: typeof stats.minutes === 'number' ? stats.minutes : 0,
+      };
+    });
+  }));
+
+  return { finished, weekly };
+}
+
+// Minimal quote-aware CSV line splitter (handles commas inside quoted fields).
+function splitCSVLine(line){
+  const out = []; let cur = ''; let inQuotes = false;
+  for (let i = 0; i < line.length; i++){
+    const c = line[i];
+    if (inQuotes){
+      if (c === '"'){
+        if (line[i+1] === '"'){ cur += '"'; i++; }
+        else { inQuotes = false; }
+      } else { cur += c; }
+    } else {
+      if (c === '"'){ inQuotes = true; }
+      else if (c === ','){ out.push(cur); cur = ''; }
+      else { cur += c; }
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(l => l.length);
+  if (!lines.length) return { header: [], rows: [] };
+  const header = splitCSVLine(lines[0]);
+  const rows = lines.slice(1).map(splitCSVLine);
+  return { header, rows };
+}
+
+// Normalizes a player's full name for cross-season matching: lowercase,
+// trimmed, accents stripped, whitespace collapsed.
+function normalizeName(name){
+  return (name || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Community-maintained archive (github.com/vaastav/Fantasy-Premier-League) of
+// completed FPL seasons. Used to look up, for each returning player, how many
+// points they scored against a given opponent last season (2025/26) — matched
+// by player NAME, not FPL element id. Element ids are reassigned across the
+// full player pool each season, so they are NOT a safe cross-season key
+// (this especially breaks for players from newly-promoted clubs, e.g. Hull
+// City, who weren't even in the Premier League last season and so should
+// never show a badge at all — matching by id was silently attributing some
+// unrelated player's stats to them instead of leaving the cell blank).
+async function fetchLastSeasonData(){
+  try{
+    const base = 'https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/master/data/2025-26';
+    const [teamsText, gwText] = await Promise.all([
+      fetch(`${base}/teams.csv`).then(r => r.text()),
+      fetch(`${base}/gws/merged_gw.csv`).then(r => r.text()),
+    ]);
+
+    const teamsCsv = parseCSV(teamsText);
+    const idIdx = teamsCsv.header.indexOf('id');
+    const shortIdx = teamsCsv.header.indexOf('short_name');
+    const teamShortById = {};
+    if (idIdx !== -1 && shortIdx !== -1){
+      teamsCsv.rows.forEach(r => { teamShortById[r[idIdx]] = r[shortIdx]; });
+    }
+
+    const gwCsv = parseCSV(gwText);
+    const h = gwCsv.header;
+    const nameIdx = h.indexOf('name');
+    const oppIdx = h.indexOf('opponent_team');
+    const ptsIdx = h.indexOf('total_points');
+    if (nameIdx === -1 || oppIdx === -1 || ptsIdx === -1) return {};
+
+    const byName = {};
+    gwCsv.rows.forEach(r => {
+      const key = normalizeName(r[nameIdx]);
+      const oppShort = teamShortById[r[oppIdx]];
+      const pts = parseInt(r[ptsIdx], 10);
+      if (!key || !oppShort || Number.isNaN(pts)) return;
+      if (!byName[key]) byName[key] = [];
+      byName[key].push({ oppShort, pts });
+    });
+    return byName;
+  }catch(err){
+    console.error('Last-season data failed to load:', err);
+    return {};
+  }
+}
+
+async function init(){
+  const wrap = document.getElementById('tableWrap');
+  try{
+    DATA = await fetchWithFallback(API_URL);
+    renderMeta(DATA);
+    renderTabs();
+    wireControls();
+    renderTable();
+
+    try{
+      const [{ finished, weekly }, fixtures, lastSeasonByName] = await Promise.all([
+        fetchWeeklyData(DATA),
+        fetchFixturesData(),
+        fetchLastSeasonData(),
+      ]);
+      DATA.finishedEvents = finished;
+      DATA.weekly = weekly;
+      DATA.fixtures = fixtures;
+      DATA.lastSeasonByName = lastSeasonByName;
+      if (activeTab === 'consistent' || activeTab === 'allplayers' || activeTab === 'matches') renderTable();
+    }catch(weeklyErr){
+      console.error('Weekly/fixture data failed to load:', weeklyErr);
+      DATA.finishedEvents = [];
+      DATA.weekly = {};
+      DATA.fixtures = [];
+      DATA.lastSeasonByName = {};
+    }
+  }catch(err){
+    wrap.innerHTML = `
+      <div class="state error">
+        Couldn't reach live FPL data right now.
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; opacity:0.7; margin-top:10px; max-width:520px; margin-left:auto; margin-right:auto;">
+          ${(err.attempts || [err.message]).join('<br>')}
+        </div>
+        <div><button class="retry" onclick="location.reload()">Retry</button></div>
+      </div>`;
+    console.error(err);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

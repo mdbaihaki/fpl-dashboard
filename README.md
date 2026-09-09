@@ -11,11 +11,11 @@ A single-file dashboard for Fantasy Premier League player leaderboards, weekly c
 - Responsive layout for mobile
 
 ## Local preview
-Open `fpl-dashboard.html` directly in a browser, or serve the folder:
+Open `index.html` directly in a browser, or serve the folder:
 
 ```
 npx serve .
 ```
 
 ## Deploy
-Hosted as a static site. `vercel.json` rewrites `/` to `fpl-dashboard.html`.
+Hosted as a static site on Vercel. `index.html` is served at the root automatically.

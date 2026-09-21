@@ -427,6 +427,11 @@
     line-height: 1;
   }
   .event-icon-og img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .event-icon-red {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; line-height: 1;
+  }
+  .event-icon-red img { width: 100%; height: 100%; object-fit: contain; display: block; }
   .badge-assist {
     background: #FF3D8A;
     color: #FFFFFF;
@@ -1625,7 +1630,7 @@ function matchCardHtml(fixture, teams, teamFullNames, teamCodes, players, weekly
     if (e.type === 'goal') return `<div class="event-row"><span>${e.name}</span>${'<span class="event-icon-ball">⚽</span>'.repeat(e.count||1)}</div>`;
     if (e.type === 'og') return `<div class="event-row"><span>${e.name}</span><span class="event-icon-og"><img src="/own-goal-icon.png" alt="Own goal"></span></div>`;
     if (e.type === 'assist') return `<div class="event-row"><span>${e.name}</span>${'<span class="badge-assist">A</span>'.repeat(e.count||1)}</div>`;
-    if (e.type === 'red') return `<div class="event-row"><span>${e.name}</span><span class="mstat mstat-red">🟥</span></div>`;
+    if (e.type === 'red') return `<div class="event-row"><span>${e.name}</span><span class="event-icon-red"><img src="/red-card-icon.jpg" alt="Red card"></span></div>`;
     return '';
   }).join('');
 
@@ -1633,7 +1638,7 @@ function matchCardHtml(fixture, teams, teamFullNames, teamCodes, players, weekly
     if (e.type === 'goal') return `<div class="event-row">${'<span class="event-icon-ball">⚽</span>'.repeat(e.count||1)}<span>${e.name}</span></div>`;
     if (e.type === 'og') return `<div class="event-row"><span class="event-icon-og"><img src="/own-goal-icon.png" alt="Own goal"></span><span>${e.name}</span></div>`;
     if (e.type === 'assist') return `<div class="event-row">${'<span class="badge-assist">A</span>'.repeat(e.count||1)}<span>${e.name}</span></div>`;
-    if (e.type === 'red') return `<div class="event-row"><span class="mstat mstat-red">🟥</span><span>${e.name}</span></div>`;
+    if (e.type === 'red') return `<div class="event-row"><span class="event-icon-red"><img src="/red-card-icon.jpg" alt="Red card"></span><span>${e.name}</span></div>`;
     return '';
   }).join('');
 

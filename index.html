@@ -917,13 +917,21 @@ function renderMeta(bootstrap){
 function renderTabs(){
   const el = document.getElementById('tabs');
   el.innerHTML = '';
+  let activeEl = null;
   TABS.forEach(t => {
     const d = document.createElement('div');
     d.className = 'tab' + (t.id === activeTab ? ' active' : '');
     d.textContent = t.label;
     d.onclick = () => { activeTab = t.id; saveMenuState(); renderTabs(); renderTable(); };
     el.appendChild(d);
+    if (t.id === activeTab) activeEl = d;
   });
+  // Keep the active tab visible in the horizontally-scrolling tab bar
+  if (activeEl){
+    requestAnimationFrame(() => {
+      activeEl.scrollIntoView({ inline: 'center', block: 'nearest' });
+    });
+  }
 }
 
 function renderTable(){

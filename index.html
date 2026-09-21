@@ -171,6 +171,7 @@
   .pos-badge.pos-mid{ background:#2AA7E0; color:#FFFFFF; }
   .pos-badge.pos-fwd{ background:#E8506B; color:#FFFFFF; }
   .match-player-cell .pos-badge{ padding:1px 6px; font-size:9px; flex:0 0 auto; }
+  .event-row .pos-badge{ padding:1px 6px; font-size:9px; flex:0 0 auto; }
   .stat-main{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:15px; color:var(--paper); text-align:right;}
   .price{font-family:'IBM Plex Mono',monospace; color:rgba(var(--paper-rgb),0.7); text-align:right;}
 
@@ -1503,50 +1504,50 @@ function extractMatchEvents(fixture, players) {
 
   (goals.h || []).forEach(item => {
     const p = players[item.element];
-    if (p && item.value > 0) homeEvents.push({ type: 'goal', name: p.web_name, count: item.value });
+    if (p && item.value > 0) homeEvents.push({ type: 'goal', name: p.web_name, count: item.value, p });
   });
 
   (assists.h || []).forEach(item => {
     const p = players[item.element];
-    if (p) homeEvents.push({ type: 'assist', name: p.web_name, count: item.value });
+    if (p) homeEvents.push({ type: 'assist', name: p.web_name, count: item.value, p });
   });
 
   (ownGoals.h || []).forEach(item => {
     const p = players[item.element];
     if (p) {
       for (let i = 0; i < item.value; i++) {
-        homeEvents.push({ type: 'og', name: p.web_name });
+        homeEvents.push({ type: 'og', name: p.web_name, p });
       }
     }
   });
 
   (redCards.h || []).forEach(item => {
     const p = players[item.element];
-    if (p) homeEvents.push({ type: 'red', name: p.web_name });
+    if (p) homeEvents.push({ type: 'red', name: p.web_name, p });
   });
 
   (goals.a || []).forEach(item => {
     const p = players[item.element];
-    if (p && item.value > 0) awayEvents.push({ type: 'goal', name: p.web_name, count: item.value });
+    if (p && item.value > 0) awayEvents.push({ type: 'goal', name: p.web_name, count: item.value, p });
   });
 
   (assists.a || []).forEach(item => {
     const p = players[item.element];
-    if (p) awayEvents.push({ type: 'assist', name: p.web_name, count: item.value });
+    if (p) awayEvents.push({ type: 'assist', name: p.web_name, count: item.value, p });
   });
 
   (ownGoals.a || []).forEach(item => {
     const p = players[item.element];
     if (p) {
       for (let i = 0; i < item.value; i++) {
-        awayEvents.push({ type: 'og', name: p.web_name });
+        awayEvents.push({ type: 'og', name: p.web_name, p });
       }
     }
   });
 
   (redCards.a || []).forEach(item => {
     const p = players[item.element];
-    if (p) awayEvents.push({ type: 'red', name: p.web_name });
+    if (p) awayEvents.push({ type: 'red', name: p.web_name, p });
   });
 
   return { homeEvents, awayEvents };
@@ -1701,19 +1702,21 @@ function matchCardHtml(fixture, teams, teamFullNames, teamCodes, players, weekly
 
   const { homeEvents, awayEvents } = extractMatchEvents(fixture, players);
 
+  const evPosBadge = (e) => e.p ? posBadge(POS_NAMES[e.p.element_type]) : '';
+
   const homeEventsHtml = homeEvents.map(e => {
-    if (e.type === 'goal') return `<div class="event-row"><span>${e.name}</span>${'<span class="event-icon-ball">⚽</span>'.repeat(e.count||1)}</div>`;
-    if (e.type === 'og') return `<div class="event-row"><span>${e.name}</span><span class="event-icon-og"><img src="/own-goal-icon.png" alt="Own goal"></span></div>`;
-    if (e.type === 'assist') return `<div class="event-row"><span>${e.name}</span>${'<span class="badge-assist">A</span>'.repeat(e.count||1)}</div>`;
-    if (e.type === 'red') return `<div class="event-row"><span>${e.name}</span><span class="event-icon-red"><img src="/red-card-icon.jpg" alt="Red card"></span></div>`;
+    if (e.type === 'goal') return `<div class="event-row">${evPosBadge(e)}<span>${e.name}</span>${'<span class="event-icon-ball">⚽</span>'.repeat(e.count||1)}</div>`;
+    if (e.type === 'og') return `<div class="event-row">${evPosBadge(e)}<span>${e.name}</span><span class="event-icon-og"><img src="/own-goal-icon.png" alt="Own goal"></span></div>`;
+    if (e.type === 'assist') return `<div class="event-row">${evPosBadge(e)}<span>${e.name}</span>${'<span class="badge-assist">A</span>'.repeat(e.count||1)}</div>`;
+    if (e.type === 'red') return `<div class="event-row">${evPosBadge(e)}<span>${e.name}</span><span class="event-icon-red"><img src="/red-card-icon.jpg" alt="Red card"></span></div>`;
     return '';
   }).join('');
 
   const awayEventsHtml = awayEvents.map(e => {
-    if (e.type === 'goal') return `<div class="event-row">${'<span class="event-icon-ball">⚽</span>'.repeat(e.count||1)}<span>${e.name}</span></div>`;
-    if (e.type === 'og') return `<div class="event-row"><span class="event-icon-og"><img src="/own-goal-icon.png" alt="Own goal"></span><span>${e.name}</span></div>`;
-    if (e.type === 'assist') return `<div class="event-row">${'<span class="badge-assist">A</span>'.repeat(e.count||1)}<span>${e.name}</span></div>`;
-    if (e.type === 'red') return `<div class="event-row"><span class="event-icon-red"><img src="/red-card-icon.jpg" alt="Red card"></span><span>${e.name}</span></div>`;
+    if (e.type === 'goal') return `<div class="event-row">${'<span class="event-icon-ball">⚽</span>'.repeat(e.count||1)}<span>${e.name}</span>${evPosBadge(e)}</div>`;
+    if (e.type === 'og') return `<div class="event-row"><span class="event-icon-og"><img src="/own-goal-icon.png" alt="Own goal"></span><span>${e.name}</span>${evPosBadge(e)}</div>`;
+    if (e.type === 'assist') return `<div class="event-row">${'<span class="badge-assist">A</span>'.repeat(e.count||1)}<span>${e.name}</span>${evPosBadge(e)}</div>`;
+    if (e.type === 'red') return `<div class="event-row"><span class="event-icon-red"><img src="/red-card-icon.jpg" alt="Red card"></span><span>${e.name}</span>${evPosBadge(e)}</div>`;
     return '';
   }).join('');
 

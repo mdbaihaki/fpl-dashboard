@@ -172,6 +172,7 @@
   .pos-badge.pos-fwd{ background:#E8506B; color:#FFFFFF; }
   .match-player-cell .pos-badge{ padding:1px 6px; font-size:9px; flex:0 0 auto; }
   .event-row .pos-badge{ padding:1px 6px; font-size:9px; flex:0 0 auto; }
+  .bonus-row .pos-badge{ padding:1px 6px; font-size:9px; flex:0 0 auto; }
   .stat-main{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:15px; color:var(--paper); text-align:right;}
   .price{font-family:'IBM Plex Mono',monospace; color:rgba(var(--paper-rgb),0.7); text-align:right;}
 
@@ -1733,15 +1734,10 @@ function matchCardHtml(fixture, teams, teamFullNames, teamCodes, players, weekly
 
   const bonusList = extractBonusList(fixture, players);
   const bonusRowsHtml = bonusList.map(b => {
-    let badgeClass = 'muted';
-    if (b.bonus === 3) badgeClass = 'gold';
-    else if (b.bonus === 2) badgeClass = 'silver';
-    else if (b.bonus === 1) badgeClass = 'bronze';
-
     return `
       <div class="bonus-row">
-        <span class="bonus-badge ${badgeClass}">${b.bonus || '-'}</span>
-        <span class="bonus-name">${b.player.web_name} <span style="font-size:11px; opacity:0.5; font-family:'IBM Plex Mono',monospace;">(${b.bps} BPS)</span></span>
+        ${posBadge(POS_NAMES[b.player.element_type])}
+        <span class="bonus-name">${b.player.web_name}${injuryIcon(b.player)} <span style="font-size:11px; opacity:0.5; font-family:'IBM Plex Mono',monospace;">(${b.bps} BPS)</span></span>
         <span class="bonus-bps">+${b.bonus}</span>
       </div>
     `;

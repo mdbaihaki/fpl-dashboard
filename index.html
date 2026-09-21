@@ -1623,7 +1623,7 @@ function matchCardHtml(fixture, teams, teamFullNames, teamCodes, players, weekly
 
   const homeEventsHtml = homeEvents.map(e => {
     if (e.type === 'goal') return `<div class="event-row"><span>${e.name}</span>${'<span class="event-icon-ball">⚽</span>'.repeat(e.count||1)}</div>`;
-    if (e.type === 'og') return `<div class="event-row"><span>${e.name}</span><span class="event-icon-og"><img src="https://www.iconsdb.com/icons/preview/red/football-2-xxl.png" alt="Own goal"></span></div>`;
+    if (e.type === 'og') return `<div class="event-row"><span>${e.name}</span><span class="event-icon-og"><img src="/own-goal-icon.png" alt="Own goal"></span></div>`;
     if (e.type === 'assist') return `<div class="event-row"><span>${e.name}</span>${'<span class="badge-assist">A</span>'.repeat(e.count||1)}</div>`;
     if (e.type === 'red') return `<div class="event-row"><span>${e.name}</span><span class="mstat mstat-red">🟥</span></div>`;
     return '';
@@ -1631,7 +1631,7 @@ function matchCardHtml(fixture, teams, teamFullNames, teamCodes, players, weekly
 
   const awayEventsHtml = awayEvents.map(e => {
     if (e.type === 'goal') return `<div class="event-row">${'<span class="event-icon-ball">⚽</span>'.repeat(e.count||1)}<span>${e.name}</span></div>`;
-    if (e.type === 'og') return `<div class="event-row"><span class="event-icon-og"><img src="https://www.iconsdb.com/icons/preview/red/football-2-xxl.png" alt="Own goal"></span><span>${e.name}</span></div>`;
+    if (e.type === 'og') return `<div class="event-row"><span class="event-icon-og"><img src="/own-goal-icon.png" alt="Own goal"></span><span>${e.name}</span></div>`;
     if (e.type === 'assist') return `<div class="event-row">${'<span class="badge-assist">A</span>'.repeat(e.count||1)}<span>${e.name}</span></div>`;
     if (e.type === 'red') return `<div class="event-row"><span class="mstat mstat-red">🟥</span><span>${e.name}</span></div>`;
     return '';

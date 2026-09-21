@@ -1427,11 +1427,7 @@ function extractMatchEvents(fixture, players) {
 
   (goals.h || []).forEach(item => {
     const p = players[item.element];
-    if (p) {
-      for (let i = 0; i < item.value; i++) {
-        homeEvents.push({ type: 'goal', name: p.web_name });
-      }
-    }
+    if (p && item.value > 0) homeEvents.push({ type: 'goal', name: p.web_name, count: item.value });
   });
 
   (assists.h || []).forEach(item => {
@@ -1455,11 +1451,7 @@ function extractMatchEvents(fixture, players) {
 
   (goals.a || []).forEach(item => {
     const p = players[item.element];
-    if (p) {
-      for (let i = 0; i < item.value; i++) {
-        awayEvents.push({ type: 'goal', name: p.web_name });
-      }
-    }
+    if (p && item.value > 0) awayEvents.push({ type: 'goal', name: p.web_name, count: item.value });
   });
 
   (assists.a || []).forEach(item => {

@@ -772,22 +772,43 @@ const TABS = [
   { id:'matches', label:'Matches', special:true },
 ];
 
+const MENU_STATE_KEY = 'fpl_menuState';
+
+function loadMenuState(){
+  try{
+    const raw = localStorage.getItem(MENU_STATE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){
+    return {};
+  }
+}
+
+function saveMenuState(){
+  try{
+    localStorage.setItem(MENU_STATE_KEY, JSON.stringify({
+      activeTab, activePos, activeClub, searchTerm,
+      compareIdA, compareIdB, compareFilterA, compareFilterB, compareClubA, compareClubB,
+      matchesEventId,
+    }));
+  }catch(e){ /* storage unavailable — ignore */ }
+}
+
+const SAVED_MENU_STATE = loadMenuState();
+
 let DATA = null;
-let activePos = 'ALL';
-let activeClub = 'ALL';
-let activeTab = (() => {
-  const saved = localStorage.getItem('fpl_activeTab');
-  return (saved && TABS.some(t => t.id === saved)) ? saved : 'points';
-})();
-let searchTerm = '';
+let activePos = SAVED_MENU_STATE.activePos || 'ALL';
+let activeClub = SAVED_MENU_STATE.activeClub || 'ALL';
+let activeTab = (SAVED_MENU_STATE.activeTab && TABS.some(t => t.id === SAVED_MENU_STATE.activeTab))
+  ? SAVED_MENU_STATE.activeTab : 'points';
+let searchTerm = SAVED_MENU_STATE.searchTerm || '';
 let theme = 'dark';
-let compareIdA = null;
-let compareIdB = null;
-let compareFilterA = 'ALL';
-let compareFilterB = 'ALL';
-let compareClubA = 'ALL';
-let compareClubB = 'ALL';
-let matchesEventId = null;
+let compareIdA = SAVED_MENU_STATE.compareIdA ?? null;
+let compareIdB = SAVED_MENU_STATE.compareIdB ?? null;
+let compareFilterA = SAVED_MENU_STATE.compareFilterA || 'ALL';
+let compareFilterB = SAVED_MENU_STATE.compareFilterB || 'ALL';
+let compareClubA = SAVED_MENU_STATE.compareClubA || 'ALL';
+let compareClubB = SAVED_MENU_STATE.compareClubB || 'ALL';
+let matchesEventId = SAVED_MENU_STATE.matchesEventId ?? null;
 let matchesOpenIds = new Set();
 let collapsedDates = new Set();
 
@@ -900,7 +921,7 @@ function renderTabs(){
     const d = document.createElement('div');
     d.className = 'tab' + (t.id === activeTab ? ' active' : '');
     d.textContent = t.label;
-    d.onclick = () => { activeTab = t.id; localStorage.setItem('fpl_activeTab', t.id); renderTabs(); renderTable(); };
+    d.onclick = () => { activeTab = t.id; saveMenuState(); renderTabs(); renderTable(); };
     el.appendChild(d);
   });
 }
@@ -1275,6 +1296,7 @@ function applyCompareFilter(side, pos){
   const teams = teamMap(DATA.teams);
   if (side === 'A') compareFilterA = pos; else compareFilterB = pos;
   reselectComparePlayer(side, teams);
+  saveMenuState();
   renderTable();
 }
 
@@ -1282,6 +1304,7 @@ function applyCompareClub(side, club){
   const teams = teamMap(DATA.teams);
   if (side === 'A') compareClubA = club; else compareClubB = club;
   reselectComparePlayer(side, teams);
+  saveMenuState();
   renderTable();
 }
 
@@ -1293,6 +1316,7 @@ function resetCompare(){
   const topTwo = [...DATA.elements].sort((a,b) => b.total_points - a.total_points).slice(0,2);
   compareIdA = topTwo[0] ? topTwo[0].id : null;
   compareIdB = topTwo[1] ? topTwo[1].id : null;
+  saveMenuState();
   renderTable();
 }
 
@@ -1371,10 +1395,12 @@ function renderCompareView(wrap, teams, teamCodes){
   document.getElementById('compareSelectB').value = compareIdB;
   document.getElementById('compareSelectA').onchange = (e) => {
     compareIdA = parseInt(e.target.value, 10);
+    saveMenuState();
     renderTable();
   };
   document.getElementById('compareSelectB').onchange = (e) => {
     compareIdB = parseInt(e.target.value, 10);
+    saveMenuState();
     renderTable();
   };
   document.querySelectorAll('.compare-pos-filter[data-side="A"] .compare-pos-btn').forEach(btn => {
@@ -1762,6 +1788,7 @@ function renderMatchesView(wrap, teams, teamCodes){
       </div>`;
     document.getElementById('matchesEventSelect').onchange = (e) => {
       matchesEventId = parseInt(e.target.value, 10);
+      saveMenuState();
       renderTable();
     };
     return;
@@ -1804,6 +1831,7 @@ function renderMatchesView(wrap, teams, teamCodes){
 
   document.getElementById('matchesEventSelect').onchange = (e) => {
     matchesEventId = parseInt(e.target.value, 10);
+    saveMenuState();
     renderTable();
   };
 
@@ -1874,23 +1902,30 @@ function populateClubFilter(){
 
 function wireControls(){
   document.querySelectorAll('.pos-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.pos === activePos);
     btn.onclick = () => {
       document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activePos = btn.dataset.pos;
+      saveMenuState();
       renderTable();
     };
   });
   populateClubFilter();
   const clubSel = document.getElementById('clubFilter');
   if (clubSel){
+    clubSel.value = activeClub;
     clubSel.onchange = e => {
       activeClub = e.target.value;
+      saveMenuState();
       renderTable();
     };
   }
-  document.getElementById('searchBox').addEventListener('input', e => {
+  const searchBox = document.getElementById('searchBox');
+  searchBox.value = searchTerm;
+  searchBox.addEventListener('input', e => {
     searchTerm = e.target.value;
+    saveMenuState();
     renderTable();
   });
   const resetBtn = document.getElementById('resetFilters');
@@ -1902,6 +1937,7 @@ function wireControls(){
       document.querySelectorAll('.pos-btn').forEach(b => b.classList.toggle('active', b.dataset.pos === 'ALL'));
       if (clubSel) clubSel.value = 'ALL';
       document.getElementById('searchBox').value = '';
+      saveMenuState();
       renderTable();
     };
   }

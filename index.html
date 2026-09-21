@@ -775,7 +775,10 @@ const TABS = [
 let DATA = null;
 let activePos = 'ALL';
 let activeClub = 'ALL';
-let activeTab = 'points';
+let activeTab = (() => {
+  const saved = localStorage.getItem('fpl_activeTab');
+  return (saved && TABS.some(t => t.id === saved)) ? saved : 'points';
+})();
 let searchTerm = '';
 let theme = 'dark';
 let compareIdA = null;
@@ -897,7 +900,7 @@ function renderTabs(){
     const d = document.createElement('div');
     d.className = 'tab' + (t.id === activeTab ? ' active' : '');
     d.textContent = t.label;
-    d.onclick = () => { activeTab = t.id; renderTabs(); renderTable(); };
+    d.onclick = () => { activeTab = t.id; localStorage.setItem('fpl_activeTab', t.id); renderTabs(); renderTable(); };
     el.appendChild(d);
   });
 }

@@ -170,6 +170,7 @@
   .pos-badge.pos-def{ background:#0BAA5A; color:#FFFFFF; }
   .pos-badge.pos-mid{ background:#2AA7E0; color:#FFFFFF; }
   .pos-badge.pos-fwd{ background:#E8506B; color:#FFFFFF; }
+  .match-player-cell .pos-badge{ padding:1px 6px; font-size:9px; flex:0 0 auto; }
   .stat-main{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:15px; color:var(--paper); text-align:right;}
   .price{font-family:'IBM Plex Mono',monospace; color:rgba(var(--paper-rgb),0.7); text-align:right;}
 
@@ -1658,7 +1659,8 @@ function buildMatchFullList(fixture, teams, teamCodes, players, weekly){
   const playerCellHtml = (r) => `
     <div class="match-player-cell" style="padding:0;">
       ${jerseyIcon(teams[r.p.team]||'', teamCodes[r.p.team])}
-      <span class="match-player-name">${r.p.web_name}</span>
+      <span class="match-player-name">${r.p.web_name}${injuryIcon(r.p)}</span>
+      ${posBadge(POS_NAMES[r.p.element_type])}
       <span class="match-player-badges">${matchStatBadges(r)}</span>
     </div>
     <div class="num match-pts" style="padding:0;">${r.pts}</div>`;

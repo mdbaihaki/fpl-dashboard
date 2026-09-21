@@ -160,7 +160,16 @@
   .jersey-icon img{width:100%; height:100%; object-fit:contain;}
   .pname{font-weight:600; color:var(--paper);}
   .injury-icon{margin-left:6px; font-size:12px; cursor:help; vertical-align:middle;}
-  .pteam{font-size:12px; color:rgba(var(--paper-rgb),0.5); font-family:'IBM Plex Mono',monospace;}
+  .pteam{font-size:12px; color:rgba(var(--paper-rgb),0.5); font-family:'IBM Plex Mono',monospace; display:inline-flex; align-items:center; gap:6px;}
+  .pos-badge{
+    display:inline-block; padding:2px 8px; border-radius:10px;
+    font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; letter-spacing:0.5px;
+    line-height:1.4; color:#1A0A1D;
+  }
+  .pos-badge.pos-gkp{ background:#E6C24B; }
+  .pos-badge.pos-def{ background:#0BAA5A; color:#FFFFFF; }
+  .pos-badge.pos-mid{ background:#2AA7E0; color:#FFFFFF; }
+  .pos-badge.pos-fwd{ background:#E8506B; color:#FFFFFF; }
   .stat-main{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:15px; color:var(--paper); text-align:right;}
   .price{font-family:'IBM Plex Mono',monospace; color:rgba(var(--paper-rgb),0.7); text-align:right;}
 
@@ -780,6 +789,12 @@ function injuryIcon(player){
   return `<span class="injury-icon" title="${safeTitle}">⚠️</span>`;
 }
 
+// Colored position pill (GKP=yellow, DEF=green, MID=blue, FWD=red)
+function posBadge(posName){
+  const cls = { GKP:'pos-gkp', DEF:'pos-def', MID:'pos-mid', FWD:'pos-fwd' }[posName] || '';
+  return `<span class="pos-badge ${cls}">${posName}</span>`;
+}
+
 const TABS = [
   { id:'points', label:'Total Points', stat: p => p.total_points, fmt: v => v, unit:'pts' },
   { id:'form',   label:'In Form',      stat: p => parseFloat(p.form)||0, fmt: v => v.toFixed(1), unit:'form' },
@@ -1022,7 +1037,7 @@ function renderTable(){
             ${jerseyIcon(r.team, r.teamCode)}
             <div>
               <div class="pname">${r.p.web_name}${injuryIcon(r.p)}</div>
-              <div class="pteam">${r.team} · ${r.posName}</div>
+              <div class="pteam">${r.team} ${posBadge(r.posName)}</div>
             </div>
           </div>
         </td>
@@ -1131,7 +1146,7 @@ function renderConsistentTable(wrap, teams){
             ${jerseyIcon(r.team, r.teamCode)}
             <div>
               <div class="pname">${r.p.web_name}${injuryIcon(r.p)}</div>
-              <div class="pteam">${r.team} · ${r.posName}</div>
+              <div class="pteam">${r.team} ${posBadge(r.posName)}</div>
             </div>
           </div>
         </td>
@@ -1239,7 +1254,7 @@ function renderAllPlayersTable(wrap, teams){
             ${jerseyIcon(r.team, r.teamCode)}
             <div>
               <div class="pname">${r.p.web_name}${injuryIcon(r.p)}</div>
-              <div class="pteam">${r.team} · ${r.posName}</div>
+              <div class="pteam">${r.team} ${posBadge(r.posName)}</div>
             </div>
           </div>
         </td>

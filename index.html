@@ -1093,15 +1093,19 @@ function renderConsistentTable(wrap, teams){
   const fixtures = DATA.fixtures || [];
   const teamCodes = teamCodeMap(DATA.teams);
   const THRESHOLD = 3;
+  const WINDOW = 5; // only judge consistency over the last 5 finished gameweeks
 
   const lastFinished = Math.max(...finished);
   const upcomingIds = nextEventIds(DATA, lastFinished, 5);
+  // Indices (into the `finished` array) that fall within the last WINDOW gameweeks
+  const windowStartIdx = Math.max(0, finished.length - WINDOW);
 
   let rows = DATA.elements.map(p => {
     const perWeek = finished.map(ev => (weekly[p.id] && weekly[p.id][ev]) ? weekly[p.id][ev].pts : 0);
     const perWeekMinutes = finished.map(ev => (weekly[p.id] && weekly[p.id][ev]) ? weekly[p.id][ev].min : 0);
     const perWeekFixtures = finished.map(ev => fixturesForTeamInEvent(fixtures, p.team, ev));
     const nextFixtures = upcomingIds.map(id => fixturesForTeamInEvent(fixtures, p.team, id));
+    const recentWeeks = perWeek.slice(windowStartIdx); // last 5 (or fewer) gameweeks
     return {
       p,
       posName: POS_NAMES[p.element_type],
@@ -1110,7 +1114,7 @@ function renderConsistentTable(wrap, teams){
       perWeek,
       perWeekMinutes,
       perWeekFixtures,
-      minWeek: Math.min(...perWeek),
+      minWeek: Math.min(...recentWeeks),
       nextFixtures,
     };
   });
@@ -1131,7 +1135,8 @@ function renderConsistentTable(wrap, teams){
   rows = rows.slice(0, 30);
 
   if (!rows.length){
-    wrap.innerHTML = `<div class="state">No players have scored ${THRESHOLD}+ points in every gameweek so far (${finished.length} completed).</div>`;
+    const windowCount = finished.length - windowStartIdx;
+    wrap.innerHTML = `<div class="state">No players have scored ${THRESHOLD}+ points in each of the last ${windowCount} gameweek${windowCount === 1 ? '' : 's'}.</div>`;
     return;
   }
 

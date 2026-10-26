@@ -381,6 +381,14 @@
   .favor-empty-squad{font-size:12px; color:rgba(var(--paper-rgb),0.45); text-align:center; padding:10px;}
   .favor-add-box{margin-top:2px;}
   .favor-add-player{align-self:flex-start; padding:7px 14px; font-size:13px;}
+  .favor-pos-filter{display:flex; gap:4px; flex-wrap:wrap; margin-bottom:7px;}
+  .favor-pos-btn{
+    flex:1 1 auto; font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; letter-spacing:0.3px;
+    background:transparent; border:1px solid var(--line); color:rgba(var(--paper-rgb),0.7);
+    padding:5px 8px; border-radius:5px; cursor:pointer; transition:border-color .12s, color .12s, background .12s;
+  }
+  .favor-pos-btn:hover{border-color:rgba(var(--paper-rgb),0.4); color:var(--paper);}
+  .favor-pos-btn.active{background:var(--pitch); color:var(--purple-deep); border-color:var(--pitch);}
   .favor-search-input{
     width:100%; background:rgba(var(--paper-rgb),0.06); border:1px solid var(--line);
     border-radius:6px; padding:9px 11px; color:var(--paper); font-size:13px; font-family:'IBM Plex Sans',sans-serif;
@@ -1068,6 +1076,7 @@ function saveFavorTeams(){
 }
 let favorAddingToId = null;  // which team currently has its "add player" box open
 let favorSearchTerm = '';    // current text in the player search box
+let favorSearchPos = 'ALL';  // position filter in the player search box
 
 const COMPARE_STATS = [
   { label:'Total Points',    get: p => p.total_points,                          fmt: v => v,             higher:true },
@@ -2486,24 +2495,37 @@ function renderMyFavorView(wrap, teams, teamCodes){
     const addBtn = card.querySelector('.favor-add-player');
     if (addBtn) addBtn.onclick = () => {
       if (favorAddingToId === t.id){ favorAddingToId = null; }
-      else { favorAddingToId = t.id; favorSearchTerm = ''; }
+      else { favorAddingToId = t.id; favorSearchTerm = ''; favorSearchPos = 'ALL'; }
       renderTable();
     };
 
     // Live player search — filter the results list in place (no full re-render while typing)
     const searchInput = card.querySelector('.favor-search-input');
     const resultsBox = card.querySelector('.favor-search-results');
+    const refreshResults = () => {
+      if (!resultsBox) return;
+      resultsBox.innerHTML = favorSearchResults(teams, teamCodes, t.players || []);
+      wireFavorResultRows(resultsBox, t.id);
+    };
     if (searchInput && resultsBox){
       searchInput.oninput = (e) => {
         favorSearchTerm = e.target.value;
-        resultsBox.innerHTML = favorSearchResults(teams, teamCodes, t.players || []);
-        wireFavorResultRows(resultsBox, t.id);
+        refreshResults();
       };
       // focus the box when it opens
       searchInput.focus();
       searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
       wireFavorResultRows(resultsBox, t.id);
     }
+    // Position filter buttons
+    card.querySelectorAll('.favor-pos-btn').forEach(btn => {
+      btn.onclick = () => {
+        favorSearchPos = btn.dataset.pos;
+        card.querySelectorAll('.favor-pos-btn').forEach(b => b.classList.toggle('active', b === btn));
+        refreshResults();
+        if (searchInput) searchInput.focus();
+      };
+    });
 
     card.querySelectorAll('.favor-remove-player').forEach(btn => {
       btn.onclick = () => removePlayerFromFavor(t.id, btn.dataset.element);
@@ -2560,8 +2582,12 @@ function favorTeamHtml(t, players, teams, teamCodes){
     </div>` : `<div class="favor-empty-squad">No players yet. Click “+ Add Player”.</div>`;
 
   const isAdding = favorAddingToId === t.id;
+  const posBtns = ['ALL','GKP','DEF','MID','FWD'].map(pos =>
+    `<button type="button" class="favor-pos-btn${pos===favorSearchPos?' active':''}" data-pos="${pos}">${pos}</button>`
+  ).join('');
   const addBox = isAdding ? `
     <div class="favor-add-box">
+      <div class="favor-pos-filter">${posBtns}</div>
       <input class="favor-search-input" type="text" placeholder="Search player by name or club…" value="${favorSearchTerm.replace(/"/g,'&quot;')}" autocomplete="off">
       <div class="favor-search-results">${favorSearchResults(teams, teamCodes, t.players || [])}</div>
     </div>` : '';
@@ -2589,21 +2615,23 @@ function favorTeamHtml(t, players, teams, teamCodes){
 // Filtered, clickable player search results for the My Favor add box.
 function favorSearchResults(teams, teamCodes, alreadyIds){
   const q = favorSearchTerm.trim().toLowerCase();
-  if (!q){
-    return `<div class="favor-search-hint">Type at least 2 letters to search players…</div>`;
-  }
-  if (q.length < 2){
-    return `<div class="favor-search-hint">Keep typing…</div>`;
+  const posFilter = favorSearchPos && favorSearchPos !== 'ALL';
+  // Require either a position filter or 2+ characters of text
+  if (!posFilter && q.length < 2){
+    return `<div class="favor-search-hint">Pick a position or type at least 2 letters…</div>`;
   }
   const have = new Set((alreadyIds || []).map(Number));
-  let list = DATA.elements.filter(p =>
-    (p.web_name||'').toLowerCase().includes(q) ||
-    ((teams[p.team]||'').toLowerCase().includes(q))
-  );
+  let list = DATA.elements.filter(p => {
+    if (posFilter && POS_NAMES[p.element_type] !== favorSearchPos) return false;
+    if (q.length >= 2){
+      return (p.web_name||'').toLowerCase().includes(q) || ((teams[p.team]||'').toLowerCase().includes(q));
+    }
+    return true;
+  });
   list.sort((a,b) => b.total_points - a.total_points);
-  list = list.slice(0, 30);
+  list = list.slice(0, 40);
   if (!list.length){
-    return `<div class="favor-search-hint">No players match “${favorSearchTerm}”.</div>`;
+    return `<div class="favor-search-hint">No players match that filter.</div>`;
   }
   return list.map(p => {
     const added = have.has(p.id);

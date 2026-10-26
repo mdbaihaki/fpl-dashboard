@@ -346,6 +346,42 @@
   .tcard-remove:hover{color:#FF3D8A;}
   .tcard-sub{font-size:11px; color:rgba(var(--paper-rgb),0.5); font-family:'IBM Plex Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .tcard-id{font-size:10px; color:rgba(var(--paper-rgb),0.4); font-family:'IBM Plex Mono',monospace; letter-spacing:0.3px;}
+  /* My Favor page */
+  .favor-top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; flex-wrap:wrap;}
+  .favor-title{font-family:'Archivo Black',sans-serif; font-size:20px; color:var(--paper);}
+  .favor-teams{display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:14px; align-items:start;}
+  .favor-team{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px;}
+  .favor-team-head{display:flex; align-items:center; gap:8px;}
+  .favor-name-input{
+    flex:1; min-width:0; background:rgba(var(--paper-rgb),0.06); border:1px solid var(--line);
+    border-radius:6px; padding:9px 10px; color:var(--paper); font-size:15px; font-weight:700; font-family:'IBM Plex Sans',sans-serif;
+  }
+  .favor-email-input{
+    width:100%; background:rgba(var(--paper-rgb),0.06); border:1px solid var(--line);
+    border-radius:6px; padding:8px 10px; color:var(--paper); font-size:13px; font-family:'IBM Plex Mono',monospace;
+  }
+  .favor-name-input:focus, .favor-email-input:focus{outline:none; border-color:var(--pitch);}
+  .favor-delete{background:none; border:none; cursor:pointer; font-size:16px; color:rgba(var(--paper-rgb),0.5); flex:0 0 auto;}
+  .favor-delete:hover{color:#FF3D8A;}
+  .favor-meta{display:flex; gap:12px; flex-wrap:wrap; font-size:12px; color:rgba(var(--paper-rgb),0.6); font-family:'IBM Plex Mono',monospace;}
+  .favor-warn{color:#E6C24B;}
+  .favor-squad{display:flex; flex-direction:column; gap:10px;}
+  .favor-pos-group{display:flex; flex-direction:column; gap:5px;}
+  .favor-pos-label{font-size:11px; font-weight:700; color:rgba(var(--paper-rgb),0.55); text-transform:uppercase; letter-spacing:0.3px; font-family:'IBM Plex Mono',monospace;}
+  .favor-pos-count{color:rgba(var(--paper-rgb),0.45); font-weight:600;}
+  .favor-pos-count.over{color:#E6C24B;}
+  .favor-player{display:flex; align-items:center; gap:9px; background:rgba(var(--paper-rgb),0.04); border:1px solid var(--line); border-radius:7px; padding:7px 9px;}
+  .favor-player .jersey-icon{width:22px; height:22px; flex:0 0 auto;}
+  .favor-player-info{flex:1; min-width:0;}
+  .favor-player-name{font-weight:600; color:var(--paper); font-size:13px;}
+  .favor-player-sub{font-size:10px; color:rgba(var(--paper-rgb),0.5); font-family:'IBM Plex Mono',monospace; display:inline-flex; align-items:center; gap:5px; margin-top:1px;}
+  .favor-remove-player{background:none; border:none; cursor:pointer; color:rgba(var(--paper-rgb),0.4); font-size:12px; flex:0 0 auto;}
+  .favor-remove-player:hover{color:#FF3D8A;}
+  .favor-empty{font-size:11px; color:rgba(var(--paper-rgb),0.3); font-family:'IBM Plex Mono',monospace; padding:2px 2px 4px;}
+  .favor-empty-squad{font-size:12px; color:rgba(var(--paper-rgb),0.45); text-align:center; padding:10px;}
+  .favor-add-box{margin-top:2px;}
+  .favor-player-select{width:100%;}
+  .favor-add-player{align-self:flex-start; padding:7px 14px; font-size:13px;}
   .tcard-sub.err{color:#FF8A8A; white-space:normal;}
   .tcard-metrics{display:flex; justify-content:space-between; gap:4px; margin-top:2px;}
   .tcard-metric{display:flex; flex-direction:column; align-items:center; gap:1px; flex:1;}
@@ -946,6 +982,7 @@ const TABS = [
   { id:'compare', label:'Compare Players', special:true },
   { id:'matches', label:'Matches', special:true },
   { id:'myteam', label:'My Team', special:true },
+  { id:'myfavor', label:'My Favor', special:true },
 ];
 
 const MENU_STATE_KEY = 'fpl_menuState';
@@ -1000,6 +1037,18 @@ let favTeams = (() => {
 function saveFavTeams(){
   try { localStorage.setItem(FAV_TEAMS_KEY, JSON.stringify(favTeams)); } catch(e){}
 }
+
+// ---- My Favor: user-created custom teams (unlimited) ----
+// Each: { id, name, email, players: [elementId, ...] }
+const FAVOR_TEAMS_KEY = 'fpl_favorTeams';
+let favorTeams = (() => {
+  try { return JSON.parse(localStorage.getItem(FAVOR_TEAMS_KEY) || '[]'); }
+  catch(e){ return []; }
+})();
+function saveFavorTeams(){
+  try { localStorage.setItem(FAVOR_TEAMS_KEY, JSON.stringify(favorTeams)); } catch(e){}
+}
+let favorAddingToId = null;  // which team currently has its "add player" box open
 
 const COMPARE_STATS = [
   { label:'Total Points',    get: p => p.total_points,                          fmt: v => v,             higher:true },
@@ -1131,7 +1180,7 @@ function renderTable(){
   const teamCodes = teamCodeMap(DATA.teams);
 
   const controls = document.querySelector('.controls');
-  if (controls) controls.style.display = (tabDef.id === 'compare' || tabDef.id === 'matches' || tabDef.id === 'myteam') ? 'none' : '';
+  if (controls) controls.style.display = (tabDef.id === 'compare' || tabDef.id === 'matches' || tabDef.id === 'myteam' || tabDef.id === 'myfavor') ? 'none' : '';
 
   if (tabDef.special && tabDef.id === 'consistent'){
     renderConsistentTable(wrap, teams);
@@ -1155,6 +1204,11 @@ function renderTable(){
 
   if (tabDef.special && tabDef.id === 'myteam'){
     renderMyTeamView(wrap, teams, teamCodes);
+    return;
+  }
+
+  if (tabDef.special && tabDef.id === 'myfavor'){
+    renderMyFavorView(wrap, teams, teamCodes);
     return;
   }
 
@@ -2334,6 +2388,166 @@ function myTeamSquadHtml(t, players, teams, teamCodes){
 function formatChip(code){
   const map = { wildcard:'Wildcard', bboost:'Bench Boost', '3xc':'Triple Captain', freehit:'Free Hit' };
   return map[code] || code;
+}
+
+// ---------- My Favor (custom user teams) ----------
+
+function newFavorTeamId(){ return 'f' + Date.now() + Math.random().toString(36).slice(2,6); }
+
+function addFavorTeam(){
+  favorTeams.push({ id: newFavorTeamId(), name: '', email: '', players: [] });
+  saveFavorTeams();
+  renderTable();
+}
+function deleteFavorTeam(id){
+  favorTeams = favorTeams.filter(t => t.id !== id);
+  if (favorAddingToId === id) favorAddingToId = null;
+  saveFavorTeams();
+  renderTable();
+}
+function updateFavorTeam(id, field, value){
+  const t = favorTeams.find(x => x.id === id);
+  if (!t) return;
+  t[field] = value;
+  saveFavorTeams();
+}
+function addPlayerToFavor(teamId, elementId){
+  const t = favorTeams.find(x => x.id === teamId);
+  if (!t) return;
+  elementId = Number(elementId);
+  if (!t.players.includes(elementId)) t.players.push(elementId);
+  saveFavorTeams();
+  renderTable();
+}
+function removePlayerFromFavor(teamId, elementId){
+  const t = favorTeams.find(x => x.id === teamId);
+  if (!t) return;
+  t.players = t.players.filter(id => id !== Number(elementId));
+  saveFavorTeams();
+  renderTable();
+}
+
+function renderMyFavorView(wrap, teams, teamCodes){
+  const players = playersById(DATA.elements);
+
+  const header = `
+    <div class="favor-top">
+      <div>
+        <div class="favor-title">My Favor</div>
+        <div class="myteam-hint">Create unlimited custom teams. Give each a name + email, then assign players (grouped FPL-style by position).</div>
+      </div>
+      <button class="myteam-load" id="favorAddTeam" type="button">+ New Team</button>
+    </div>`;
+
+  let body;
+  if (!favorTeams.length){
+    body = `<div class="state">No teams yet. Click “+ New Team” to create one.</div>`;
+  } else {
+    body = `<div class="favor-teams">${favorTeams.map(t => favorTeamHtml(t, players, teams, teamCodes)).join('')}</div>`;
+  }
+
+  wrap.innerHTML = `<div class="myteam-wrap">${header}${body}</div>`;
+
+  document.getElementById('favorAddTeam').onclick = addFavorTeam;
+
+  // Wire per-team controls
+  favorTeams.forEach(t => {
+    const card = wrap.querySelector(`.favor-team[data-id="${t.id}"]`);
+    if (!card) return;
+    const nameInput = card.querySelector('.favor-name-input');
+    const emailInput = card.querySelector('.favor-email-input');
+    if (nameInput) nameInput.oninput = (e) => updateFavorTeam(t.id, 'name', e.target.value);
+    if (emailInput) emailInput.oninput = (e) => updateFavorTeam(t.id, 'email', e.target.value);
+
+    const delBtn = card.querySelector('.favor-delete');
+    if (delBtn) delBtn.onclick = () => {
+      if (confirm('Delete this team?')) deleteFavorTeam(t.id);
+    };
+
+    const addBtn = card.querySelector('.favor-add-player');
+    if (addBtn) addBtn.onclick = () => { favorAddingToId = (favorAddingToId === t.id ? null : t.id); renderTable(); };
+
+    const sel = card.querySelector('.favor-player-select');
+    if (sel) sel.onchange = (e) => {
+      if (e.target.value){ addPlayerToFavor(t.id, e.target.value); favorAddingToId = t.id; }
+    };
+
+    card.querySelectorAll('.favor-remove-player').forEach(btn => {
+      btn.onclick = () => removePlayerFromFavor(t.id, btn.dataset.element);
+    });
+  });
+}
+
+function favorTeamHtml(t, players, teams, teamCodes){
+  // Group assigned players by position, FPL-style
+  const assigned = (t.players || []).map(id => players[id]).filter(Boolean);
+  const byPos = { GKP:[], DEF:[], MID:[], FWD:[] };
+  assigned.forEach(p => { const pos = POS_NAMES[p.element_type]; if (byPos[pos]) byPos[pos].push(p); });
+  const counts = { GKP: byPos.GKP.length, DEF: byPos.DEF.length, MID: byPos.MID.length, FWD: byPos.FWD.length };
+  const totalCost = assigned.reduce((s, p) => s + (p.now_cost||0), 0) / 10;
+
+  const playerRow = (p) => `
+    <div class="favor-player">
+      ${jerseyIcon(teams[p.team]||'', teamCodes[p.team])}
+      <div class="favor-player-info">
+        <div class="favor-player-name">${p.web_name}${injuryIcon(p)}</div>
+        <div class="favor-player-sub">${teams[p.team]||''} ${posBadge(POS_NAMES[p.element_type])} · £${(p.now_cost/10).toFixed(1)}m</div>
+      </div>
+      <button class="favor-remove-player" type="button" data-element="${p.id}" title="Remove">✕</button>
+    </div>`;
+
+  const posGroup = (label, list, limit) => `
+    <div class="favor-pos-group">
+      <div class="favor-pos-label">${label} <span class="favor-pos-count ${list.length>limit?'over':''}">${list.length}/${limit}</span></div>
+      ${list.length ? list.map(playerRow).join('') : '<div class="favor-empty">None</div>'}
+    </div>`;
+
+  const squadHtml = assigned.length ? `
+    <div class="favor-squad">
+      ${posGroup('Goalkeepers', byPos.GKP, 2)}
+      ${posGroup('Defenders', byPos.DEF, 5)}
+      ${posGroup('Midfielders', byPos.MID, 5)}
+      ${posGroup('Forwards', byPos.FWD, 3)}
+    </div>` : `<div class="favor-empty-squad">No players yet. Click “+ Add Player”.</div>`;
+
+  const isAdding = favorAddingToId === t.id;
+  const addBox = isAdding ? `
+    <div class="favor-add-box">
+      <select class="favor-player-select compare-select">
+        <option value="">Select a player to add…</option>
+        ${favorPlayerOptions(teams)}
+      </select>
+    </div>` : '';
+
+  const overCap = (assigned.length > 15) || counts.GKP>2 || counts.DEF>5 || counts.MID>5 || counts.FWD>3;
+
+  return `
+    <div class="favor-team" data-id="${t.id}">
+      <div class="favor-team-head">
+        <input class="favor-name-input" type="text" placeholder="Team name" value="${String(t.name||'').replace(/"/g,'&quot;')}">
+        <button class="favor-delete" type="button" title="Delete team">🗑</button>
+      </div>
+      <input class="favor-email-input" type="email" placeholder="Email" value="${String(t.email||'').replace(/"/g,'&quot;')}">
+      <div class="favor-meta">
+        <span>${assigned.length} player${assigned.length===1?'':'s'}</span>
+        <span>£${totalCost.toFixed(1)}m</span>
+        ${overCap ? '<span class="favor-warn">⚠️ over FPL limits</span>' : ''}
+      </div>
+      ${squadHtml}
+      <button class="favor-add-player myteam-load" type="button">${isAdding ? 'Done' : '+ Add Player'}</button>
+      ${addBox}
+    </div>`;
+}
+
+// Player <option> list grouped by position (reused from compare-style grouping)
+function favorPlayerOptions(teams){
+  const groups = { GKP:[], DEF:[], MID:[], FWD:[] };
+  DATA.elements.forEach(p => { const pos = POS_NAMES[p.element_type]; if (groups[pos]) groups[pos].push(p); });
+  Object.values(groups).forEach(l => l.sort((a,b) => b.total_points - a.total_points));
+  return Object.entries(groups).map(([pos, l]) => `
+    <optgroup label="${pos}">
+      ${l.map(p => `<option value="${p.id}">${p.web_name} — ${teams[p.team]||''} (£${(p.now_cost/10).toFixed(1)}m)</option>`).join('')}
+    </optgroup>`).join('');
 }
 
 function openMatchModal(fixtureId, teams, teamCodes){

@@ -338,13 +338,14 @@
   .fav-chip:hover{border-color:#E6C24B;}
   .fav-chip-x{color:rgba(var(--paper-rgb),0.5); font-size:11px; cursor:pointer;}
   .fav-chip-x:hover{color:#FF3D8A;}
-  .tcards{display:grid; grid-template-columns:repeat(auto-fit, minmax(0, 1fr)); gap:10px; margin-top:4px;}
+  .tcols{display:grid; grid-template-columns:repeat(auto-fit, minmax(0, 1fr)); gap:10px; margin-top:4px; align-items:start;}
+  .tcol{display:flex; flex-direction:column; gap:10px; min-width:0;}
+  .tcol-squad{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px;}
   .tcard{
     background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px;
     display:flex; flex-direction:column; gap:8px; min-width:0;
   }
-  .tcard.expanded{border-color:var(--pitch);}
-  .tcard-head{display:flex; align-items:center; gap:6px; cursor:pointer;}
+  .tcard-head{display:flex; align-items:center; gap:6px;}
   .tcard-name{flex:1; min-width:0; font-weight:700; color:var(--paper); font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .tcard-fav{background:none; border:none; cursor:pointer; font-size:16px; color:rgba(var(--paper-rgb),0.4); line-height:1; padding:0;}
   .tcard-fav.on{color:#E6C24B;}
@@ -360,11 +361,24 @@
     align-self:flex-start; background:rgba(11,170,90,0.18); border:1px solid var(--pitch); color:var(--paper);
     padding:2px 8px; border-radius:4px; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:11px;
   }
-  .tcard-expand{font-size:11px; color:var(--pitch); font-weight:600; cursor:pointer; text-align:center; padding-top:2px;}
-  .tsquad{margin-top:16px; border-top:1px solid var(--line); padding-top:6px;}
+  /* Squad listing inside each team column — compact to fit side by side */
+  .tcol-squad .myteam-section-title{font-size:11px; margin:10px 0 8px;}
+  .tcol-squad .myteam-section-title:first-child{margin-top:2px;}
+  .tcol-squad .myteam-player{padding:7px 8px; gap:8px;}
+  .tcol-squad .myteam-player .jersey-icon{width:22px; height:22px;}
+  .tcol-squad .myteam-player-name{font-size:13px;}
+  .tcol-squad .myteam-player-sub{font-size:10px;}
+  .tcol-squad .myteam-player-pts{font-size:14px; min-width:26px;}
   @media (max-width:560px){
     .tcard-name{font-size:12px;}
     .tcard-metric span{font-size:13px;}
+    .tcols{gap:6px;}
+    .tcol-squad{padding:6px;}
+    .tcol-squad .myteam-player{padding:5px 5px; gap:5px;}
+    .tcol-squad .myteam-player .jersey-icon{width:18px; height:18px;}
+    .tcol-squad .myteam-player-name{font-size:11px;}
+    .tcol-squad .myteam-player-sub .pos-badge{padding:1px 4px; font-size:8px;}
+    .tcol-squad .myteam-player-pts{font-size:12px; min-width:20px;}
   }
 
   /* Matches Page Styles */
@@ -984,7 +998,6 @@ let myTeamError = '';
 let myTeamMode = 'id';      // 'id' or 'name'
 // Multi-team comparison: up to 3 teams loaded side by side
 let myTeams = [];           // [{ id, entry, picks, gw, loading, error }]
-let expandedTeamId = null;  // id of the team whose full squad is expanded
 const MAX_COMPARE_TEAMS = 3;
 const FAV_TEAMS_KEY = 'fpl_favTeams';
 let favTeams = (() => {
@@ -2085,9 +2098,7 @@ async function addTeam(id){
   id = String(id).trim();
   if (!id) return;
   if (myTeams.some(t => t.id === id)){
-    // already loaded — just expand it
-    expandedTeamId = id;
-    renderTable();
+    renderTable(); // already loaded
     return;
   }
   if (myTeams.length >= MAX_COMPARE_TEAMS){
@@ -2098,7 +2109,6 @@ async function addTeam(id){
   myTeamError = '';
   const slot = { id, entry: null, picks: null, gw: null, loading: true, error: '' };
   myTeams.push(slot);
-  expandedTeamId = id;
   renderTable();
   try{
     const entry = await fetchWithFallback(`https://fantasy.premierleague.com/api/entry/${id}/`);
@@ -2117,7 +2127,6 @@ async function addTeam(id){
 
 function removeTeam(id){
   myTeams = myTeams.filter(t => t.id !== id);
-  if (expandedTeamId === id) expandedTeamId = null;
   renderTable();
 }
 
@@ -2200,15 +2209,13 @@ function renderMyTeamView(wrap, teams, teamCodes){
       };
     });
 
-    // Team card controls: expand, favorite, remove
+    // Team card controls: favorite, remove
     wrap.querySelectorAll('.tcard').forEach(card => {
       const id = card.dataset.id;
       const favBtn = card.querySelector('.tcard-fav');
       const rmBtn = card.querySelector('.tcard-remove');
-      const header = card.querySelector('.tcard-head');
       if (favBtn) favBtn.onclick = (e) => { e.stopPropagation(); toggleFav(id, favBtn.dataset.name); };
       if (rmBtn) rmBtn.onclick = (e) => { e.stopPropagation(); removeTeam(id); };
-      if (header) header.onclick = () => { expandedTeamId = (expandedTeamId === id ? null : id); renderTable(); };
     });
 
     // Auto-restore after refresh: load favorited teams into the comparison (up to the max)
@@ -2259,18 +2266,14 @@ function myTeamsCompareHtml(players, teams, teamCodes){
 
   const errBanner = myTeamError ? `<div class="state error" style="padding:14px;">${myTeamError}</div>` : '';
 
-  // Compact stat cards, side by side
-  const cards = myTeams.map(t => tcardHtml(t)).join('');
-  const cardsHtml = `<div class="tcards">${cards}</div>`;
+  // Each team gets its own column: stat card on top + full squad listing below.
+  const n = myTeams.length;
+  const cols = myTeams.map(t => {
+    const squad = (t.entry && t.picks) ? myTeamSquadHtml(t, players, teams, teamCodes) : '';
+    return `<div class="tcol">${tcardHtml(t)}${squad ? `<div class="tcol-squad">${squad}</div>` : ''}</div>`;
+  }).join('');
 
-  // Expanded squad (only one at a time)
-  let expandedHtml = '';
-  const ex = myTeams.find(t => t.id === expandedTeamId);
-  if (ex && ex.entry && ex.picks){
-    expandedHtml = `<div class="tsquad">${myTeamSquadHtml(ex, players, teams, teamCodes)}</div>`;
-  }
-
-  return errBanner + cardsHtml + expandedHtml;
+  return errBanner + `<div class="tcols" data-count="${n}">${cols}</div>`;
 }
 
 function tcardHtml(t){
@@ -2296,9 +2299,8 @@ function tcardHtml(t){
   const e = t.entry;
   const eh = (t.picks && t.picks.entry_history) || {};
   const chip = t.picks && t.picks.active_chip ? formatChip(t.picks.active_chip) : '';
-  const isExpanded = expandedTeamId === t.id;
   const owner = `${e.player_first_name||''} ${e.player_last_name||''}`.trim();
-  return `<div class="tcard ${isExpanded ? 'expanded' : ''}" data-id="${t.id}">
+  return `<div class="tcard" data-id="${t.id}">
     <div class="tcard-head">
       <button class="${starClass}" type="button" data-name="${String(e.name||'').replace(/"/g,'&quot;')}" title="${fav ? 'Remove from favorites' : 'Save to favorites'}">${star}</button>
       <div class="tcard-name">${e.name || 'Team'}</div>
@@ -2311,7 +2313,6 @@ function tcardHtml(t){
       <div class="tcard-metric"><span>${e.summary_overall_rank != null ? shortRank(e.summary_overall_rank) : '—'}</span><label>Rank</label></div>
     </div>
     ${chip ? `<div class="tcard-chip">${chip}</div>` : ''}
-    <div class="tcard-expand">${isExpanded ? 'Hide squad ▴' : 'Show squad ▾'}</div>
   </div>`;
 }
 
@@ -2354,7 +2355,7 @@ function myTeamSquadHtml(t, players, teams, teamCodes){
     </div>` : '';
 
   return `
-    <div class="myteam-section-title">${entry.name} — Starting XI</div>
+    <div class="myteam-section-title">Starting XI</div>
     ${posGroupHtml('Goalkeeper', byPos.GKP)}
     ${posGroupHtml('Defenders', byPos.DEF)}
     ${posGroupHtml('Midfielders', byPos.MID)}

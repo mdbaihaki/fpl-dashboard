@@ -138,6 +138,21 @@
   }
   .tab:hover{color:rgba(var(--paper-rgb),0.85);}
   .tab.active{color:var(--paper); border-color:var(--pitch);}
+  .tab-dropdown{display:inline-flex; align-items:center; gap:5px;}
+  .tab-caret{font-size:10px; transition:transform .15s;}
+  .tab-dropdown.open .tab-caret{transform:rotate(180deg);}
+  .tab-menu{
+    position:fixed; z-index:1200; display:none; min-width:180px;
+    background:var(--purple); border:1px solid var(--line); border-radius:8px;
+    box-shadow:0 8px 28px rgba(0,0,0,0.45); padding:6px; flex-direction:column; gap:2px;
+  }
+  .tab-dropdown.open .tab-menu{display:flex;}
+  .tab-menu-item{
+    padding:9px 12px; font-size:14px; font-weight:600; border-radius:6px; cursor:pointer;
+    color:rgba(var(--paper-rgb),0.7); white-space:nowrap; transition:background .12s, color .12s;
+  }
+  .tab-menu-item:hover{background:rgba(var(--paper-rgb),0.08); color:var(--paper);}
+  .tab-menu-item.active{background:var(--pitch); color:var(--purple-deep);}
 
   .table-wrap{margin-top:14px; overflow-x:auto; -webkit-overflow-scrolling:touch;}
   table{width:100%; border-collapse:collapse; font-size:14px;}
@@ -997,12 +1012,12 @@ function posBadge(posName){
 }
 
 const TABS = [
-  { id:'points', label:'Total Points', stat: p => p.total_points, fmt: v => v, unit:'pts' },
-  { id:'form',   label:'In Form',      stat: p => parseFloat(p.form)||0, fmt: v => v.toFixed(1), unit:'form' },
-  { id:'value',  label:'Best Value',   stat: p => p.now_cost>0 ? p.total_points/(p.now_cost/10) : 0, fmt: v => v.toFixed(1), unit:'pts/£m' },
-  { id:'owned',  label:'Most Selected',stat: p => parseFloat(p.selected_by_percent)||0, fmt: v => v.toFixed(1)+'%', unit:'' },
-  { id:'ict',    label:'ICT Index',    stat: p => parseFloat(p.ict_index)||0, fmt: v => v.toFixed(1), unit:'' },
-  { id:'ga',     label:'Goals + Assists', stat: p => (p.goals_scored||0)+(p.assists||0), fmt: v => v, unit:'' },
+  { id:'points', label:'Total Points', group:'stats', stat: p => p.total_points, fmt: v => v, unit:'pts' },
+  { id:'form',   label:'In Form',      group:'stats', stat: p => parseFloat(p.form)||0, fmt: v => v.toFixed(1), unit:'form' },
+  { id:'value',  label:'Best Value',   group:'stats', stat: p => p.now_cost>0 ? p.total_points/(p.now_cost/10) : 0, fmt: v => v.toFixed(1), unit:'pts/£m' },
+  { id:'owned',  label:'Most Selected',group:'stats', stat: p => parseFloat(p.selected_by_percent)||0, fmt: v => v.toFixed(1)+'%', unit:'' },
+  { id:'ict',    label:'ICT Index',    group:'stats', stat: p => parseFloat(p.ict_index)||0, fmt: v => v.toFixed(1), unit:'' },
+  { id:'ga',     label:'Goals + Assists', group:'stats', stat: p => (p.goals_scored||0)+(p.assists||0), fmt: v => v, unit:'' },
   { id:'consistent', label:'3+ Every Week', special:true },
   { id:'allplayers', label:'All Player', special:true },
   { id:'compare', label:'Compare Players', special:true },
@@ -1184,7 +1199,48 @@ function renderTabs(){
   const el = document.getElementById('tabs');
   el.innerHTML = '';
   let activeEl = null;
-  TABS.forEach(t => {
+
+  const statsTabs = TABS.filter(t => t.group === 'stats');
+  const otherTabs = TABS.filter(t => t.group !== 'stats');
+  const statsActive = statsTabs.some(t => t.id === activeTab);
+  const activeStatsTab = statsTabs.find(t => t.id === activeTab);
+
+  // --- Stats dropdown tab ---
+  const stats = document.createElement('div');
+  stats.className = 'tab tab-dropdown' + (statsActive ? ' active' : '');
+  stats.innerHTML = `<span>Stats${statsActive ? ': ' + activeStatsTab.label : ''}</span><span class="tab-caret">▾</span>`;
+
+  const menu = document.createElement('div');
+  menu.className = 'tab-menu';
+  statsTabs.forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'tab-menu-item' + (t.id === activeTab ? ' active' : '');
+    item.textContent = t.label;
+    item.onclick = (e) => {
+      e.stopPropagation();
+      activeTab = t.id;
+      saveMenuState();
+      renderTabs();
+      renderTable();
+    };
+    menu.appendChild(item);
+  });
+  stats.appendChild(menu);
+  stats.onclick = (e) => {
+    e.stopPropagation();
+    const willOpen = !stats.classList.contains('open');
+    stats.classList.toggle('open');
+    if (willOpen){
+      const r = stats.getBoundingClientRect();
+      menu.style.top = (r.bottom + 4) + 'px';
+      menu.style.left = r.left + 'px';
+    }
+  };
+  el.appendChild(stats);
+  if (statsActive) activeEl = stats;
+
+  // --- Remaining normal tabs ---
+  otherTabs.forEach(t => {
     const d = document.createElement('div');
     d.className = 'tab' + (t.id === activeTab ? ' active' : '');
     d.textContent = t.label;
@@ -1192,6 +1248,15 @@ function renderTabs(){
     el.appendChild(d);
     if (t.id === activeTab) activeEl = d;
   });
+
+  // Close any open tab dropdown when clicking elsewhere (registered once globally)
+  if (!window._tabDropdownCloserAdded){
+    window._tabDropdownCloserAdded = true;
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.tab-dropdown.open').forEach(d => d.classList.remove('open'));
+    });
+  }
+
   // Keep the active tab visible in the horizontally-scrolling tab bar
   if (activeEl){
     requestAnimationFrame(() => {

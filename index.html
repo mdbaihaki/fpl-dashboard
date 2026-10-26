@@ -352,6 +352,7 @@
   .tcard-remove{background:none; border:none; cursor:pointer; color:rgba(var(--paper-rgb),0.4); font-size:13px; line-height:1; padding:0 2px;}
   .tcard-remove:hover{color:#FF3D8A;}
   .tcard-sub{font-size:11px; color:rgba(var(--paper-rgb),0.5); font-family:'IBM Plex Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .tcard-id{font-size:10px; color:rgba(var(--paper-rgb),0.4); font-family:'IBM Plex Mono',monospace; letter-spacing:0.3px;}
   .tcard-sub.err{color:#FF8A8A; white-space:normal;}
   .tcard-metrics{display:flex; justify-content:space-between; gap:4px; margin-top:2px;}
   .tcard-metric{display:flex; flex-direction:column; align-items:center; gap:1px; flex:1;}
@@ -2293,6 +2294,7 @@ function tcardHtml(t){
         <div class="tcard-name">${name}</div>
         <button class="tcard-remove" type="button" title="Remove">✕</button>
       </div>
+      <div class="tcard-id">ID: ${t.id}</div>
       <div class="tcard-sub err">${t.error || 'Failed to load'}</div>
     </div>`;
   }
@@ -2307,6 +2309,7 @@ function tcardHtml(t){
       <button class="tcard-remove" type="button" title="Remove">✕</button>
     </div>
     <div class="tcard-sub">${owner} · GW${t.gw}</div>
+    <div class="tcard-id">ID: ${t.id}</div>
     <div class="tcard-metrics">
       <div class="tcard-metric"><span>${eh.points != null ? eh.points : '—'}</span><label>GW</label></div>
       <div class="tcard-metric"><span>${e.summary_overall_points != null ? e.summary_overall_points.toLocaleString() : '—'}</span><label>Total</label></div>

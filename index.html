@@ -328,6 +328,44 @@
   .name-result-team{font-weight:700; color:var(--paper); font-size:15px;}
   .name-result-owner{font-size:12px; color:rgba(var(--paper-rgb),0.55); font-family:'IBM Plex Mono',monospace; margin-top:2px;}
   .name-result-go{flex:0 0 auto; color:var(--pitch); font-size:16px; font-weight:700;}
+  /* Favorites + multi-team compare */
+  .fav-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
+  .fav-chip{
+    display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+    background:rgba(230,194,75,0.12); border:1px solid rgba(230,194,75,0.5); color:var(--paper);
+    border-radius:16px; padding:6px 12px; font-size:13px; font-family:'IBM Plex Mono',monospace;
+  }
+  .fav-chip:hover{border-color:#E6C24B;}
+  .fav-chip-x{color:rgba(var(--paper-rgb),0.5); font-size:11px; cursor:pointer;}
+  .fav-chip-x:hover{color:#FF3D8A;}
+  .tcards{display:grid; grid-template-columns:repeat(auto-fit, minmax(0, 1fr)); gap:10px; margin-top:4px;}
+  .tcard{
+    background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px;
+    display:flex; flex-direction:column; gap:8px; min-width:0;
+  }
+  .tcard.expanded{border-color:var(--pitch);}
+  .tcard-head{display:flex; align-items:center; gap:6px; cursor:pointer;}
+  .tcard-name{flex:1; min-width:0; font-weight:700; color:var(--paper); font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .tcard-fav{background:none; border:none; cursor:pointer; font-size:16px; color:rgba(var(--paper-rgb),0.4); line-height:1; padding:0;}
+  .tcard-fav.on{color:#E6C24B;}
+  .tcard-remove{background:none; border:none; cursor:pointer; color:rgba(var(--paper-rgb),0.4); font-size:13px; line-height:1; padding:0 2px;}
+  .tcard-remove:hover{color:#FF3D8A;}
+  .tcard-sub{font-size:11px; color:rgba(var(--paper-rgb),0.5); font-family:'IBM Plex Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .tcard-sub.err{color:#FF8A8A; white-space:normal;}
+  .tcard-metrics{display:flex; justify-content:space-between; gap:4px; margin-top:2px;}
+  .tcard-metric{display:flex; flex-direction:column; align-items:center; gap:1px; flex:1;}
+  .tcard-metric span{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:15px; color:var(--paper);}
+  .tcard-metric label{font-size:9px; color:rgba(var(--paper-rgb),0.5); text-transform:uppercase; letter-spacing:0.3px;}
+  .tcard-chip{
+    align-self:flex-start; background:rgba(11,170,90,0.18); border:1px solid var(--pitch); color:var(--paper);
+    padding:2px 8px; border-radius:4px; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:11px;
+  }
+  .tcard-expand{font-size:11px; color:var(--pitch); font-weight:600; cursor:pointer; text-align:center; padding-top:2px;}
+  .tsquad{margin-top:16px; border-top:1px solid var(--line); padding-top:6px;}
+  @media (max-width:560px){
+    .tcard-name{font-size:12px;}
+    .tcard-metric span{font-size:13px;}
+  }
 
   /* Matches Page Styles */
   .matches-wrap{padding:6px 0 20px;}
@@ -941,11 +979,21 @@ let compareClubB = SAVED_MENU_STATE.compareClubB || 'ALL';
 let matchesEventId = SAVED_MENU_STATE.matchesEventId ?? null;
 let matchesOpenIds = new Set();
 let collapsedDates = new Set();
-let myTeamId = SAVED_MENU_STATE.myTeamId || '';
-let myTeamData = null;      // cached { entry, picks } for the loaded ID
-let myTeamLoading = false;
+let myTeamId = SAVED_MENU_STATE.myTeamId || '';  // last single ID, used to auto-restore after refresh
 let myTeamError = '';
 let myTeamMode = 'id';      // 'id' or 'name'
+// Multi-team comparison: up to 3 teams loaded side by side
+let myTeams = [];           // [{ id, entry, picks, gw, loading, error }]
+let expandedTeamId = null;  // id of the team whose full squad is expanded
+const MAX_COMPARE_TEAMS = 3;
+const FAV_TEAMS_KEY = 'fpl_favTeams';
+let favTeams = (() => {
+  try { return JSON.parse(localStorage.getItem(FAV_TEAMS_KEY) || '[]'); }
+  catch(e){ return []; }
+})();
+function saveFavTeams(){
+  try { localStorage.setItem(FAV_TEAMS_KEY, JSON.stringify(favTeams)); } catch(e){}
+}
 let nameSearchTerm = '';
 let nameSearchResults = null;  // array of {entry, player_name, entry_name, rank}
 let nameSearchLoading = false;
@@ -2032,25 +2080,58 @@ function renderMatchesView(wrap, teams, teamCodes){
 
 // ---------- My Team ----------
 
-async function loadMyTeam(id){
-  myTeamLoading = true;
+// Add a team (by id) to the comparison list and fetch its data.
+async function addTeam(id){
+  id = String(id).trim();
+  if (!id) return;
+  if (myTeams.some(t => t.id === id)){
+    // already loaded — just expand it
+    expandedTeamId = id;
+    renderTable();
+    return;
+  }
+  if (myTeams.length >= MAX_COMPARE_TEAMS){
+    myTeamError = `You can compare up to ${MAX_COMPARE_TEAMS} teams. Remove one first.`;
+    renderTable();
+    return;
+  }
   myTeamError = '';
-  myTeamData = null;
+  const slot = { id, entry: null, picks: null, gw: null, loading: true, error: '' };
+  myTeams.push(slot);
+  expandedTeamId = id;
   renderTable();
   try{
     const entry = await fetchWithFallback(`https://fantasy.premierleague.com/api/entry/${id}/`);
-    // Pick the gameweek to show: current event the manager has played, else their last.
     const events = (DATA.events || []);
     const current = events.find(e => e.is_current) || [...events].reverse().find(e => e.finished) || events[0];
     const gw = (entry.current_event) || (current && current.id) || 1;
     const picks = await fetchWithFallback(`https://fantasy.premierleague.com/api/entry/${id}/event/${gw}/picks/`);
-    myTeamData = { entry, picks, gw };
+    slot.entry = entry; slot.picks = picks; slot.gw = gw; slot.loading = false;
   }catch(err){
-    myTeamError = 'Could not load that team. Check the FPL ID and try again.';
+    slot.loading = false;
+    slot.error = 'Could not load this team. Check the FPL ID.';
   }finally{
-    myTeamLoading = false;
     renderTable();
   }
+}
+
+function removeTeam(id){
+  myTeams = myTeams.filter(t => t.id !== id);
+  if (expandedTeamId === id) expandedTeamId = null;
+  renderTable();
+}
+
+function isFav(id){ return favTeams.some(f => f.id === String(id)); }
+
+function toggleFav(id, name){
+  id = String(id);
+  if (isFav(id)){
+    favTeams = favTeams.filter(f => f.id !== id);
+  } else {
+    favTeams.push({ id, name: name || ('Team ' + id) });
+  }
+  saveFavTeams();
+  renderTable();
 }
 
 function renderMyTeamView(wrap, teams, teamCodes){
@@ -2065,12 +2146,13 @@ function renderMyTeamView(wrap, teams, teamCodes){
   let searchHtml;
   if (myTeamMode === 'id'){
     searchHtml = `
+      ${favTeamsHtml()}
       <div class="myteam-header">
         <input class="myteam-input" id="myTeamInput" type="text" inputmode="numeric"
-          placeholder="Enter your FPL ID (e.g. 1234567)" value="${myTeamId ? String(myTeamId).replace(/"/g,'') : ''}">
-        <button class="myteam-load" id="myTeamLoad" type="button">Load Team</button>
+          placeholder="Enter FPL ID to add a team (e.g. 1234567)">
+        <button class="myteam-load" id="myTeamLoad" type="button">Add Team</button>
       </div>
-      <div class="myteam-hint">Find your ID in the FPL site URL: fantasy.premierleague.com/entry/<b>ID</b>/event/…</div>`;
+      <div class="myteam-hint">Add up to ${MAX_COMPARE_TEAMS} teams to compare side by side. Tap ☆ to save a team to favorites so it won't vanish.</div>`;
   } else {
     searchHtml = `
       <div class="myteam-header">
@@ -2083,14 +2165,8 @@ function renderMyTeamView(wrap, teams, teamCodes){
   }
 
   let bodyHtml = '';
-  if (myTeamLoading){
-    bodyHtml = `<div class="state">Loading your team…</div>`;
-  } else if (myTeamError){
-    bodyHtml = `<div class="state error">${myTeamError}</div>`;
-  } else if (myTeamData){
-    bodyHtml = myTeamBodyHtml(players, teams, teamCodes);
-  } else if (myTeamMode === 'id') {
-    bodyHtml = `<div class="state">Enter your FPL ID above to see your squad.</div>`;
+  if (myTeamMode === 'id'){
+    bodyHtml = myTeamsCompareHtml(players, teams, teamCodes);
   }
 
   wrap.innerHTML = `<div class="myteam-wrap">${tabsHtml}${searchHtml}${bodyHtml}</div>`;
@@ -2106,16 +2182,39 @@ function renderMyTeamView(wrap, teams, teamCodes){
     const submit = () => {
       const val = (input.value || '').trim().replace(/[^0-9]/g, '');
       if (!val){ myTeamError = 'Please enter a valid numeric FPL ID.'; renderTable(); return; }
-      myTeamId = val;
-      saveMenuState();
-      loadMyTeam(val);
+      input.value = '';
+      addTeam(val);
     };
     if (loadBtn) loadBtn.onclick = submit;
     if (input) input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
 
-    // Auto-load if we have a saved ID but no data yet (e.g. after refresh)
-    if (myTeamId && !myTeamData && !myTeamLoading && !myTeamError){
-      loadMyTeam(myTeamId);
+    // Favorite quick-pick chips
+    wrap.querySelectorAll('.fav-chip').forEach(chip => {
+      chip.onclick = (e) => {
+        if (e.target.classList.contains('fav-chip-x')){
+          e.stopPropagation();
+          toggleFav(chip.dataset.id);
+          return;
+        }
+        addTeam(chip.dataset.id);
+      };
+    });
+
+    // Team card controls: expand, favorite, remove
+    wrap.querySelectorAll('.tcard').forEach(card => {
+      const id = card.dataset.id;
+      const favBtn = card.querySelector('.tcard-fav');
+      const rmBtn = card.querySelector('.tcard-remove');
+      const header = card.querySelector('.tcard-head');
+      if (favBtn) favBtn.onclick = (e) => { e.stopPropagation(); toggleFav(id, favBtn.dataset.name); };
+      if (rmBtn) rmBtn.onclick = (e) => { e.stopPropagation(); removeTeam(id); };
+      if (header) header.onclick = () => { expandedTeamId = (expandedTeamId === id ? null : id); renderTable(); };
+    });
+
+    // Auto-restore after refresh: load favorited teams into the comparison (up to the max)
+    if (!myTeams.length && favTeams.length && !window._myTeamAutoLoaded){
+      window._myTeamAutoLoaded = true;
+      favTeams.slice(0, MAX_COMPARE_TEAMS).forEach(f => addTeam(f.id));
     }
   } else {
     const input = document.getElementById('nameSearchInput');
@@ -2129,16 +2228,138 @@ function renderMyTeamView(wrap, teams, teamCodes){
     if (searchBtn) searchBtn.onclick = submit;
     if (input) input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
 
-    // Wire result rows
+    // Wire result rows — picking one adds it to the comparison (switch to ID view)
     wrap.querySelectorAll('.name-result').forEach(row => {
       row.onclick = () => {
         const id = row.dataset.entry;
-        myTeamId = id;
-        saveMenuState();
-        loadMyTeam(id);
+        myTeamMode = 'id';
+        addTeam(id);
       };
     });
   }
+}
+
+function favTeamsHtml(){
+  if (!favTeams.length) return '';
+  const chips = favTeams.map(f => `
+    <span class="fav-chip" data-id="${f.id}" title="Load ${String(f.name).replace(/"/g,'&quot;')}">
+      ★ ${f.name}
+      <span class="fav-chip-x" title="Remove from favorites">✕</span>
+    </span>`).join('');
+  return `<div class="fav-chips">${chips}</div>`;
+}
+
+function myTeamsCompareHtml(players, teams, teamCodes){
+  if (myTeamError && !myTeams.length){
+    return `<div class="state error">${myTeamError}</div>`;
+  }
+  if (!myTeams.length){
+    return `<div class="state">Add a team by FPL ID above${favTeams.length ? ', or tap a ★ favorite' : ''} to see squads.</div>`;
+  }
+
+  const errBanner = myTeamError ? `<div class="state error" style="padding:14px;">${myTeamError}</div>` : '';
+
+  // Compact stat cards, side by side
+  const cards = myTeams.map(t => tcardHtml(t)).join('');
+  const cardsHtml = `<div class="tcards">${cards}</div>`;
+
+  // Expanded squad (only one at a time)
+  let expandedHtml = '';
+  const ex = myTeams.find(t => t.id === expandedTeamId);
+  if (ex && ex.entry && ex.picks){
+    expandedHtml = `<div class="tsquad">${myTeamSquadHtml(ex, players, teams, teamCodes)}</div>`;
+  }
+
+  return errBanner + cardsHtml + expandedHtml;
+}
+
+function tcardHtml(t){
+  const fav = isFav(t.id);
+  const starClass = fav ? 'tcard-fav on' : 'tcard-fav';
+  const star = fav ? '★' : '☆';
+  if (t.loading){
+    return `<div class="tcard loading" data-id="${t.id}">
+      <div class="tcard-head"><div class="tcard-name">Loading…</div></div>
+      <div class="tcard-sub">ID ${t.id}</div>
+    </div>`;
+  }
+  if (t.error || !t.entry){
+    const name = t.entry ? t.entry.name : ('ID ' + t.id);
+    return `<div class="tcard error" data-id="${t.id}">
+      <div class="tcard-head">
+        <div class="tcard-name">${name}</div>
+        <button class="tcard-remove" type="button" title="Remove">✕</button>
+      </div>
+      <div class="tcard-sub err">${t.error || 'Failed to load'}</div>
+    </div>`;
+  }
+  const e = t.entry;
+  const eh = (t.picks && t.picks.entry_history) || {};
+  const chip = t.picks && t.picks.active_chip ? formatChip(t.picks.active_chip) : '';
+  const isExpanded = expandedTeamId === t.id;
+  const owner = `${e.player_first_name||''} ${e.player_last_name||''}`.trim();
+  return `<div class="tcard ${isExpanded ? 'expanded' : ''}" data-id="${t.id}">
+    <div class="tcard-head">
+      <button class="${starClass}" type="button" data-name="${String(e.name||'').replace(/"/g,'&quot;')}" title="${fav ? 'Remove from favorites' : 'Save to favorites'}">${star}</button>
+      <div class="tcard-name">${e.name || 'Team'}</div>
+      <button class="tcard-remove" type="button" title="Remove">✕</button>
+    </div>
+    <div class="tcard-sub">${owner} · GW${t.gw}</div>
+    <div class="tcard-metrics">
+      <div class="tcard-metric"><span>${eh.points != null ? eh.points : '—'}</span><label>GW</label></div>
+      <div class="tcard-metric"><span>${e.summary_overall_points != null ? e.summary_overall_points.toLocaleString() : '—'}</span><label>Total</label></div>
+      <div class="tcard-metric"><span>${e.summary_overall_rank != null ? shortRank(e.summary_overall_rank) : '—'}</span><label>Rank</label></div>
+    </div>
+    ${chip ? `<div class="tcard-chip">${chip}</div>` : ''}
+    <div class="tcard-expand">${isExpanded ? 'Hide squad ▴' : 'Show squad ▾'}</div>
+  </div>`;
+}
+
+function shortRank(n){
+  if (n >= 1000000) return (n/1000000).toFixed(1).replace(/\.0$/,'') + 'M';
+  if (n >= 1000) return (n/1000).toFixed(0) + 'k';
+  return String(n);
+}
+
+function myTeamSquadHtml(t, players, teams, teamCodes){
+  const { entry, picks, gw } = t;
+  const rows = (picks.picks || []).map(pk => {
+    const p = players[pk.element];
+    if (!p) return null;
+    return { pk, p, posName: POS_NAMES[p.element_type] };
+  }).filter(Boolean);
+
+  const starters = rows.filter(r => r.pk.position <= 11);
+  const bench = rows.filter(r => r.pk.position > 11);
+  const byPos = { GKP:[], DEF:[], MID:[], FWD:[] };
+  starters.forEach(r => byPos[r.posName] && byPos[r.posName].push(r));
+
+  const lineHtml = (r) => {
+    const marker = r.pk.is_captain ? '<span class="myteam-cap">C</span>'
+      : (r.pk.is_vice_captain ? '<span class="myteam-cap vice">V</span>' : '');
+    return `
+      <div class="myteam-player">
+        ${jerseyIcon(teams[r.p.team]||'', teamCodes[r.p.team])}
+        <div class="myteam-player-info">
+          <div class="myteam-player-name">${r.p.web_name}${marker}${injuryIcon(r.p)}</div>
+          <div class="myteam-player-sub">${teams[r.p.team]||''} ${posBadge(r.posName)}</div>
+        </div>
+        <div class="myteam-player-pts">${r.p.event_points != null ? r.p.event_points : 0}</div>
+      </div>`;
+  };
+  const posGroupHtml = (label, list) => list.length ? `
+    <div class="myteam-pos-group">
+      <div class="myteam-pos-label">${label}</div>
+      <div class="myteam-pos-players">${list.map(lineHtml).join('')}</div>
+    </div>` : '';
+
+  return `
+    <div class="myteam-section-title">${entry.name} — Starting XI</div>
+    ${posGroupHtml('Goalkeeper', byPos.GKP)}
+    ${posGroupHtml('Defenders', byPos.DEF)}
+    ${posGroupHtml('Midfielders', byPos.MID)}
+    ${posGroupHtml('Forwards', byPos.FWD)}
+    ${bench.length ? `<div class="myteam-section-title">Bench</div><div class="myteam-pos-players">${bench.map(lineHtml).join('')}</div>` : ''}`;
 }
 
 function nameSearchResultsHtml(){
@@ -2200,73 +2421,6 @@ async function searchMalaysiaByName(term){
     nameSearchLoading = false;
     renderTable();
   }
-}
-
-function myTeamBodyHtml(players, teams, teamCodes){
-  const { entry, picks, gw } = myTeamData;
-  const chip = picks.active_chip ? `<span class="myteam-chip">${formatChip(picks.active_chip)}</span>` : '';
-  const eh = picks.entry_history || {};
-  const managerName = `${entry.player_first_name||''} ${entry.player_last_name||''}`.trim();
-
-  const summary = `
-    <div class="myteam-summary">
-      <div class="myteam-name">${entry.name || 'My Team'}</div>
-      <div class="myteam-sub">${managerName} · GW${gw}</div>
-      <div class="myteam-stats">
-        <div class="myteam-stat"><span>${eh.points != null ? eh.points : '—'}</span><label>GW Points</label></div>
-        <div class="myteam-stat"><span>${entry.summary_overall_points != null ? entry.summary_overall_points.toLocaleString() : '—'}</span><label>Total</label></div>
-        <div class="myteam-stat"><span>${entry.summary_overall_rank != null ? entry.summary_overall_rank.toLocaleString() : '—'}</span><label>Overall Rank</label></div>
-        ${chip ? `<div class="myteam-stat">${chip}<label>Chip</label></div>` : ''}
-      </div>
-    </div>`;
-
-  // Build rows for the 15 picks
-  const rows = (picks.picks || []).map(pk => {
-    const p = players[pk.element];
-    if (!p) return null;
-    return { pk, p, posName: POS_NAMES[p.element_type] };
-  }).filter(Boolean);
-
-  const starters = rows.filter(r => r.pk.position <= 11);
-  const bench = rows.filter(r => r.pk.position > 11);
-
-  // Group starters by position for a pitch-like list
-  const byPos = { GKP:[], DEF:[], MID:[], FWD:[] };
-  starters.forEach(r => byPos[r.posName] && byPos[r.posName].push(r));
-
-  const lineHtml = (r) => {
-    const isCap = r.pk.is_captain;
-    const isVice = r.pk.is_vice_captain;
-    const marker = isCap ? '<span class="myteam-cap">C</span>' : (isVice ? '<span class="myteam-cap vice">V</span>' : '');
-    return `
-      <div class="myteam-player">
-        ${jerseyIcon(teams[r.p.team]||'', teamCodes[r.p.team])}
-        <div class="myteam-player-info">
-          <div class="myteam-player-name">${r.p.web_name}${marker}${injuryIcon(r.p)}</div>
-          <div class="myteam-player-sub">${teams[r.p.team]||''} ${posBadge(r.posName)}</div>
-        </div>
-        <div class="myteam-player-pts">${r.p.event_points != null ? r.p.event_points : 0}</div>
-      </div>`;
-  };
-
-  const posGroupHtml = (label, list) => list.length ? `
-    <div class="myteam-pos-group">
-      <div class="myteam-pos-label">${label}</div>
-      <div class="myteam-pos-players">${list.map(lineHtml).join('')}</div>
-    </div>` : '';
-
-  const startersHtml = `
-    <div class="myteam-section-title">Starting XI</div>
-    ${posGroupHtml('Goalkeeper', byPos.GKP)}
-    ${posGroupHtml('Defenders', byPos.DEF)}
-    ${posGroupHtml('Midfielders', byPos.MID)}
-    ${posGroupHtml('Forwards', byPos.FWD)}`;
-
-  const benchHtml = bench.length ? `
-    <div class="myteam-section-title">Bench</div>
-    <div class="myteam-pos-players">${bench.map(lineHtml).join('')}</div>` : '';
-
-  return summary + startersHtml + benchHtml;
 }
 
 function formatChip(code){

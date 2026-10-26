@@ -309,6 +309,18 @@
     background:var(--pitch); color:var(--purple-deep); font-size:10px; font-weight:800; font-family:'IBM Plex Mono',monospace;
   }
   .myteam-cap.vice{background:rgba(var(--paper-rgb),0.25); color:var(--paper);}
+  .pts-mult{font-size:9px; color:rgba(var(--paper-rgb),0.45); margin-left:3px; font-weight:400;}
+  .myteam-total{margin-top:10px; border-top:1px solid var(--line); padding-top:8px;}
+  .myteam-total-row{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:rgba(var(--paper-rgb),0.7); padding:3px 2px;
+  }
+  .myteam-total-row.sub{color:#FF8A8A; font-size:11px;}
+  .myteam-total-row.main{
+    font-size:14px; font-weight:700; color:var(--paper); border-top:1px solid var(--line);
+    margin-top:4px; padding-top:7px;
+  }
+  .bench-note{font-weight:400; font-size:9px; color:rgba(var(--paper-rgb),0.4); text-transform:none; letter-spacing:0;}
   /* Favorites + multi-team compare */
   .fav-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
   .fav-chip{
@@ -2263,9 +2275,19 @@ function myTeamSquadHtml(t, players, teams, teamCodes){
   const byPos = { GKP:[], DEF:[], MID:[], FWD:[] };
   starters.forEach(r => byPos[r.posName] && byPos[r.posName].push(r));
 
+  // Each player's effective points = raw event_points × multiplier (captain x2, TC x3,
+  // bench x0 unless Bench Boost). This is what actually contributes to the GW total.
+  const eff = (r) => (r.p.event_points != null ? r.p.event_points : 0) * (r.pk.multiplier != null ? r.pk.multiplier : 1);
+  const startingXiTotal = starters.reduce((sum, r) => sum + eff(r), 0);
+
   const lineHtml = (r) => {
     const marker = r.pk.is_captain ? '<span class="myteam-cap">C</span>'
       : (r.pk.is_vice_captain ? '<span class="myteam-cap vice">V</span>' : '');
+    const raw = r.p.event_points != null ? r.p.event_points : 0;
+    const mult = r.pk.multiplier != null ? r.pk.multiplier : 1;
+    // Show effective points; if captained/TC, show the doubled/tripled value with a hint
+    const shown = raw * (mult > 1 ? mult : 1);
+    const ptsLabel = (mult > 1) ? `${shown}<span class="pts-mult">(${raw}×${mult})</span>` : `${raw}`;
     return `
       <div class="myteam-player">
         ${jerseyIcon(teams[r.p.team]||'', teamCodes[r.p.team])}
@@ -2273,7 +2295,7 @@ function myTeamSquadHtml(t, players, teams, teamCodes){
           <div class="myteam-player-name">${r.p.web_name}${marker}${injuryIcon(r.p)}</div>
           <div class="myteam-player-sub">${teams[r.p.team]||''} ${posBadge(r.posName)}</div>
         </div>
-        <div class="myteam-player-pts">${r.p.event_points != null ? r.p.event_points : 0}</div>
+        <div class="myteam-player-pts">${ptsLabel}</div>
       </div>`;
   };
   const posGroupHtml = (label, list) => list.length ? `
@@ -2282,13 +2304,31 @@ function myTeamSquadHtml(t, players, teams, teamCodes){
       <div class="myteam-pos-players">${list.map(lineHtml).join('')}</div>
     </div>` : '';
 
+  const eh = picks.entry_history || {};
+  const officialPts = eh.points != null ? eh.points : null;
+  const hit = eh.event_transfers_cost || 0;
+
+  const totalRow = `
+    <div class="myteam-total">
+      <div class="myteam-total-row">
+        <span>Starting XI (captain counted)</span>
+        <span>${startingXiTotal}</span>
+      </div>
+      ${hit ? `<div class="myteam-total-row sub"><span>Transfer hit</span><span>-${hit}</span></div>` : ''}
+      <div class="myteam-total-row main">
+        <span>GW${gw} Total</span>
+        <span>${officialPts != null ? officialPts : (startingXiTotal - hit)}</span>
+      </div>
+    </div>`;
+
   return `
     <div class="myteam-section-title">Starting XI</div>
     ${posGroupHtml('Goalkeeper', byPos.GKP)}
     ${posGroupHtml('Defenders', byPos.DEF)}
     ${posGroupHtml('Midfielders', byPos.MID)}
     ${posGroupHtml('Forwards', byPos.FWD)}
-    ${bench.length ? `<div class="myteam-section-title">Bench</div><div class="myteam-pos-players">${bench.map(lineHtml).join('')}</div>` : ''}`;
+    ${totalRow}
+    ${bench.length ? `<div class="myteam-section-title">Bench <span class="bench-note">(doesn't count unless Bench Boost)</span></div><div class="myteam-pos-players">${bench.map(lineHtml).join('')}</div>` : ''}`;
 }
 
 function formatChip(code){

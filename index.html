@@ -309,25 +309,6 @@
     background:var(--pitch); color:var(--purple-deep); font-size:10px; font-weight:800; font-family:'IBM Plex Mono',monospace;
   }
   .myteam-cap.vice{background:rgba(var(--paper-rgb),0.25); color:var(--paper);}
-  .myteam-modes{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
-  .myteam-mode-btn{
-    font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.02em;
-    background:transparent; border:1px solid var(--line); color:rgba(var(--paper-rgb),0.75);
-    padding:8px 14px; border-radius:20px; cursor:pointer; transition:border-color .15s, color .15s, background .15s;
-  }
-  .myteam-mode-btn:hover{border-color:rgba(var(--paper-rgb),0.4);}
-  .myteam-mode-btn.active{background:var(--pitch); color:var(--purple-deep); border-color:var(--pitch); font-weight:700;}
-  .name-results{margin-top:6px; display:flex; flex-direction:column; gap:8px;}
-  .name-results-head{font-size:12px; color:rgba(var(--paper-rgb),0.5); font-family:'IBM Plex Mono',monospace; margin-bottom:2px;}
-  .name-result{
-    display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--line);
-    border-radius:8px; padding:12px 14px; cursor:pointer; transition:border-color .15s, background .15s;
-  }
-  .name-result:hover{border-color:var(--pitch); background:rgba(11,170,90,0.08);}
-  .name-result-info{flex:1; min-width:0;}
-  .name-result-team{font-weight:700; color:var(--paper); font-size:15px;}
-  .name-result-owner{font-size:12px; color:rgba(var(--paper-rgb),0.55); font-family:'IBM Plex Mono',monospace; margin-top:2px;}
-  .name-result-go{flex:0 0 auto; color:var(--pitch); font-size:16px; font-weight:700;}
   /* Favorites + multi-team compare */
   .fav-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
   .fav-chip{
@@ -996,7 +977,6 @@ let matchesOpenIds = new Set();
 let collapsedDates = new Set();
 let myTeamId = SAVED_MENU_STATE.myTeamId || '';  // last single ID, used to auto-restore after refresh
 let myTeamError = '';
-let myTeamMode = 'id';      // 'id' or 'name'
 // Multi-team comparison: up to 3 teams loaded side by side
 let myTeams = [];           // [{ id, entry, picks, gw, loading, error }]
 const MAX_COMPARE_TEAMS = 3;
@@ -1008,13 +988,6 @@ let favTeams = (() => {
 function saveFavTeams(){
   try { localStorage.setItem(FAV_TEAMS_KEY, JSON.stringify(favTeams)); } catch(e){}
 }
-let nameSearchTerm = '';
-let nameSearchResults = null;  // array of {entry, player_name, entry_name, rank}
-let nameSearchLoading = false;
-let nameSearchError = '';
-let nameSearchScanned = 0;  // how many managers were scanned
-const MALAYSIA_LEAGUE_ID = 150;
-const NAME_SEARCH_MAX_PAGES = 40; // ~2000 top-ranked Malaysian managers
 
 const COMPARE_STATS = [
   { label:'Total Points',    get: p => p.total_points,                          fmt: v => v,             higher:true },
@@ -2147,103 +2120,55 @@ function toggleFav(id, name){
 function renderMyTeamView(wrap, teams, teamCodes){
   const players = playersById(DATA.elements);
 
-  const tabsHtml = `
-    <div class="myteam-modes">
-      <button type="button" class="myteam-mode-btn ${myTeamMode==='id'?'active':''}" data-mode="id">By ID</button>
-      <button type="button" class="myteam-mode-btn ${myTeamMode==='name'?'active':''}" data-mode="name">Search Malaysia by name</button>
-    </div>`;
+  const searchHtml = `
+    ${favTeamsHtml()}
+    <div class="myteam-header">
+      <input class="myteam-input" id="myTeamInput" type="text" inputmode="numeric"
+        placeholder="Enter FPL ID to add a team (e.g. 1234567)">
+      <button class="myteam-load" id="myTeamLoad" type="button">Add Team</button>
+    </div>
+    <div class="myteam-hint">Add up to ${MAX_COMPARE_TEAMS} teams to compare side by side. Tap ☆ to save a team to favorites so it won't vanish.</div>`;
 
-  let searchHtml;
-  if (myTeamMode === 'id'){
-    searchHtml = `
-      ${favTeamsHtml()}
-      <div class="myteam-header">
-        <input class="myteam-input" id="myTeamInput" type="text" inputmode="numeric"
-          placeholder="Enter FPL ID to add a team (e.g. 1234567)">
-        <button class="myteam-load" id="myTeamLoad" type="button">Add Team</button>
-      </div>
-      <div class="myteam-hint">Add up to ${MAX_COMPARE_TEAMS} teams to compare side by side. Tap ☆ to save a team to favorites so it won't vanish.</div>`;
-  } else {
-    searchHtml = `
-      <div class="myteam-header">
-        <input class="myteam-input" id="nameSearchInput" type="text"
-          placeholder="Enter team name to search in Malaysia…" value="${nameSearchTerm.replace(/"/g,'&quot;')}">
-        <button class="myteam-load" id="nameSearchBtn" type="button">Search</button>
-      </div>
-      <div class="myteam-hint">Searches the top ~${NAME_SEARCH_MAX_PAGES*50} ranked managers in the Malaysia league. Type part of the team name, then pick your account by owner name.</div>
-      ${nameSearchResultsHtml()}`;
-  }
+  const bodyHtml = myTeamsCompareHtml(players, teams, teamCodes);
 
-  let bodyHtml = '';
-  if (myTeamMode === 'id'){
-    bodyHtml = myTeamsCompareHtml(players, teams, teamCodes);
-  }
+  wrap.innerHTML = `<div class="myteam-wrap">${searchHtml}${bodyHtml}</div>`;
 
-  wrap.innerHTML = `<div class="myteam-wrap">${tabsHtml}${searchHtml}${bodyHtml}</div>`;
+  const input = document.getElementById('myTeamInput');
+  const loadBtn = document.getElementById('myTeamLoad');
+  const submit = () => {
+    const val = (input.value || '').trim().replace(/[^0-9]/g, '');
+    if (!val){ myTeamError = 'Please enter a valid numeric FPL ID.'; renderTable(); return; }
+    input.value = '';
+    addTeam(val);
+  };
+  if (loadBtn) loadBtn.onclick = submit;
+  if (input) input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
 
-  // Mode toggle
-  wrap.querySelectorAll('.myteam-mode-btn').forEach(btn => {
-    btn.onclick = () => { myTeamMode = btn.dataset.mode; renderTable(); };
+  // Favorite quick-pick chips
+  wrap.querySelectorAll('.fav-chip').forEach(chip => {
+    chip.onclick = (e) => {
+      if (e.target.classList.contains('fav-chip-x')){
+        e.stopPropagation();
+        toggleFav(chip.dataset.id);
+        return;
+      }
+      addTeam(chip.dataset.id);
+    };
   });
 
-  if (myTeamMode === 'id'){
-    const input = document.getElementById('myTeamInput');
-    const loadBtn = document.getElementById('myTeamLoad');
-    const submit = () => {
-      const val = (input.value || '').trim().replace(/[^0-9]/g, '');
-      if (!val){ myTeamError = 'Please enter a valid numeric FPL ID.'; renderTable(); return; }
-      input.value = '';
-      addTeam(val);
-    };
-    if (loadBtn) loadBtn.onclick = submit;
-    if (input) input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+  // Team card controls: favorite, remove
+  wrap.querySelectorAll('.tcard').forEach(card => {
+    const id = card.dataset.id;
+    const favBtn = card.querySelector('.tcard-fav');
+    const rmBtn = card.querySelector('.tcard-remove');
+    if (favBtn) favBtn.onclick = (e) => { e.stopPropagation(); toggleFav(id, favBtn.dataset.name); };
+    if (rmBtn) rmBtn.onclick = (e) => { e.stopPropagation(); removeTeam(id); };
+  });
 
-    // Favorite quick-pick chips
-    wrap.querySelectorAll('.fav-chip').forEach(chip => {
-      chip.onclick = (e) => {
-        if (e.target.classList.contains('fav-chip-x')){
-          e.stopPropagation();
-          toggleFav(chip.dataset.id);
-          return;
-        }
-        addTeam(chip.dataset.id);
-      };
-    });
-
-    // Team card controls: favorite, remove
-    wrap.querySelectorAll('.tcard').forEach(card => {
-      const id = card.dataset.id;
-      const favBtn = card.querySelector('.tcard-fav');
-      const rmBtn = card.querySelector('.tcard-remove');
-      if (favBtn) favBtn.onclick = (e) => { e.stopPropagation(); toggleFav(id, favBtn.dataset.name); };
-      if (rmBtn) rmBtn.onclick = (e) => { e.stopPropagation(); removeTeam(id); };
-    });
-
-    // Auto-restore after refresh: load favorited teams into the comparison (up to the max)
-    if (!myTeams.length && favTeams.length && !window._myTeamAutoLoaded){
-      window._myTeamAutoLoaded = true;
-      favTeams.slice(0, MAX_COMPARE_TEAMS).forEach(f => addTeam(f.id));
-    }
-  } else {
-    const input = document.getElementById('nameSearchInput');
-    const searchBtn = document.getElementById('nameSearchBtn');
-    const submit = () => {
-      const val = (input.value || '').trim();
-      if (val.length < 2){ nameSearchError = 'Type at least 2 characters.'; nameSearchResults = null; renderTable(); return; }
-      nameSearchTerm = val;
-      searchMalaysiaByName(val);
-    };
-    if (searchBtn) searchBtn.onclick = submit;
-    if (input) input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
-
-    // Wire result rows — picking one adds it to the comparison (switch to ID view)
-    wrap.querySelectorAll('.name-result').forEach(row => {
-      row.onclick = () => {
-        const id = row.dataset.entry;
-        myTeamMode = 'id';
-        addTeam(id);
-      };
-    });
+  // Auto-restore after refresh: load favorited teams into the comparison (up to the max)
+  if (!myTeams.length && favTeams.length && !window._myTeamAutoLoaded){
+    window._myTeamAutoLoaded = true;
+    favTeams.slice(0, MAX_COMPARE_TEAMS).forEach(f => addTeam(f.id));
   }
 }
 
@@ -2364,67 +2289,6 @@ function myTeamSquadHtml(t, players, teams, teamCodes){
     ${posGroupHtml('Midfielders', byPos.MID)}
     ${posGroupHtml('Forwards', byPos.FWD)}
     ${bench.length ? `<div class="myteam-section-title">Bench</div><div class="myteam-pos-players">${bench.map(lineHtml).join('')}</div>` : ''}`;
-}
-
-function nameSearchResultsHtml(){
-  if (nameSearchLoading){
-    return `<div class="state">Searching Malaysia… scanned ${nameSearchScanned.toLocaleString()} managers</div>`;
-  }
-  if (nameSearchError){
-    return `<div class="state error">${nameSearchError}</div>`;
-  }
-  if (nameSearchResults == null){
-    return '';
-  }
-  if (!nameSearchResults.length){
-    return `<div class="state">No teams found matching “${nameSearchTerm}” in the top ${nameSearchScanned.toLocaleString()} Malaysian managers. Try a different spelling, or use the By ID option.</div>`;
-  }
-  const rows = nameSearchResults.map(r => `
-    <div class="name-result" data-entry="${r.entry}">
-      <div class="name-result-info">
-        <div class="name-result-team">${r.entry_name}</div>
-        <div class="name-result-owner">${r.player_name} · Rank ${r.rank ? r.rank.toLocaleString() : '—'}</div>
-      </div>
-      <span class="name-result-go">▸</span>
-    </div>`).join('');
-  return `<div class="name-results">
-    <div class="name-results-head">${nameSearchResults.length} match${nameSearchResults.length===1?'':'es'} found</div>
-    ${rows}
-  </div>`;
-}
-
-async function searchMalaysiaByName(term){
-  nameSearchLoading = true;
-  nameSearchError = '';
-  nameSearchResults = null;
-  nameSearchScanned = 0;
-  renderTable();
-  const q = term.toLowerCase();
-  const matches = [];
-  try{
-    for (let page = 1; page <= NAME_SEARCH_MAX_PAGES; page++){
-      const url = `https://fantasy.premierleague.com/api/leagues-classic/${MALAYSIA_LEAGUE_ID}/standings/?page_standings=${page}`;
-      const data = await fetchWithFallback(url);
-      const results = (data.standings && data.standings.results) || [];
-      if (!results.length) break;
-      nameSearchScanned += results.length;
-      results.forEach(r => {
-        if ((r.entry_name||'').toLowerCase().includes(q) || (r.player_name||'').toLowerCase().includes(q)){
-          matches.push({ entry: r.entry, player_name: r.player_name, entry_name: r.entry_name, rank: r.rank });
-        }
-      });
-      // update progress every few pages
-      if (page % 3 === 0) renderTable();
-      if (!data.standings.has_next) break;
-      if (matches.length >= 50) break; // enough matches to choose from
-    }
-    nameSearchResults = matches;
-  }catch(err){
-    nameSearchError = 'Search failed (the FPL data proxy may be busy). Please try again.';
-  }finally{
-    nameSearchLoading = false;
-    renderTable();
-  }
 }
 
 function formatChip(code){

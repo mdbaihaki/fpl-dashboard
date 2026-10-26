@@ -255,6 +255,61 @@
   .stat-win{color:var(--pitch); font-weight:700;}
   .stat-lose{color:rgba(var(--paper-rgb),0.35);}
 
+  /* My Team Page Styles */
+  .myteam-wrap{padding:6px 0 24px;}
+  .myteam-header{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:6px;}
+  .myteam-input{
+    flex:1 1 260px; min-width:0; background:rgba(var(--paper-rgb),0.06); border:1px solid var(--line);
+    border-radius:6px; padding:10px 12px; color:var(--paper); font-size:14px; font-family:'IBM Plex Sans',sans-serif;
+  }
+  .myteam-input::placeholder{color:rgba(var(--paper-rgb),0.4);}
+  .myteam-input:focus{outline:none; border-color:var(--pitch);}
+  .myteam-load{
+    flex:0 0 auto; background:var(--pitch); color:var(--purple-deep); border:none; font-weight:700;
+    padding:10px 18px; border-radius:6px; cursor:pointer; font-size:14px; font-family:'IBM Plex Sans',sans-serif;
+  }
+  .myteam-load:hover{filter:brightness(1.08);}
+  .myteam-hint{font-size:12px; color:rgba(var(--paper-rgb),0.45); margin-bottom:18px;}
+  .myteam-hint b{color:rgba(var(--paper-rgb),0.7);}
+  .myteam-summary{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:16px; margin-bottom:18px; text-align:center;
+  }
+  .myteam-name{font-family:'Archivo Black',sans-serif; font-size:22px; color:var(--paper); line-height:1.1;}
+  .myteam-sub{font-size:13px; color:rgba(var(--paper-rgb),0.55); margin-top:4px; font-family:'IBM Plex Mono',monospace;}
+  .myteam-stats{display:flex; flex-wrap:wrap; justify-content:center; gap:22px; margin-top:14px;}
+  .myteam-stat{display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .myteam-stat span{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:18px; color:var(--paper);}
+  .myteam-stat label{font-size:11px; color:rgba(var(--paper-rgb),0.5); text-transform:uppercase; letter-spacing:0.4px;}
+  .myteam-chip{
+    display:inline-block; background:rgba(11,170,90,0.2); border:1px solid var(--pitch); color:var(--paper);
+    padding:3px 10px; border-radius:4px; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:14px;
+  }
+  .myteam-section-title{
+    font-size:13px; font-weight:700; letter-spacing:0.3px; color:rgba(var(--paper-rgb),0.6);
+    text-transform:uppercase; margin:18px 0 10px;
+  }
+  .myteam-pos-group{margin-bottom:10px;}
+  .myteam-pos-label{font-size:11px; color:rgba(var(--paper-rgb),0.4); font-family:'IBM Plex Mono',monospace; margin-bottom:6px;}
+  .myteam-pos-players{display:flex; flex-direction:column; gap:8px;}
+  .myteam-player{
+    display:flex; align-items:center; gap:12px; background:var(--card);
+    border:1px solid var(--line); border-radius:8px; padding:10px 12px;
+  }
+  .myteam-player .jersey-icon{width:28px; height:28px; flex:0 0 auto;}
+  .myteam-player-info{flex:1; min-width:0;}
+  .myteam-player-name{font-weight:600; color:var(--paper); display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .myteam-player-sub{font-size:12px; color:rgba(var(--paper-rgb),0.5); font-family:'IBM Plex Mono',monospace; display:inline-flex; align-items:center; gap:6px; margin-top:2px;}
+  .myteam-player-pts{
+    flex:0 0 auto; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:16px; color:var(--paper);
+    min-width:34px; text-align:right;
+  }
+  .myteam-cap{
+    display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%;
+    background:var(--pitch); color:var(--purple-deep); font-size:10px; font-weight:800; font-family:'IBM Plex Mono',monospace;
+  }
+  .myteam-cap.vice{background:rgba(var(--paper-rgb),0.25); color:var(--paper);}
+
   /* Matches Page Styles */
   .matches-wrap{padding:6px 0 20px;}
   .matches-header{margin-bottom:16px; max-width:220px;}
@@ -825,6 +880,7 @@ const TABS = [
   { id:'allplayers', label:'All Player', special:true },
   { id:'compare', label:'Compare Players', special:true },
   { id:'matches', label:'Matches', special:true },
+  { id:'myteam', label:'My Team', special:true },
 ];
 
 const MENU_STATE_KEY = 'fpl_menuState';
@@ -843,7 +899,7 @@ function saveMenuState(){
     localStorage.setItem(MENU_STATE_KEY, JSON.stringify({
       activeTab, activePos, activeClub, searchTerm,
       compareIdA, compareIdB, compareFilterA, compareFilterB, compareClubA, compareClubB,
-      matchesEventId,
+      matchesEventId, myTeamId,
     }));
   }catch(e){ /* storage unavailable — ignore */ }
 }
@@ -866,6 +922,10 @@ let compareClubB = SAVED_MENU_STATE.compareClubB || 'ALL';
 let matchesEventId = SAVED_MENU_STATE.matchesEventId ?? null;
 let matchesOpenIds = new Set();
 let collapsedDates = new Set();
+let myTeamId = SAVED_MENU_STATE.myTeamId || '';
+let myTeamData = null;      // cached { entry, picks } for the loaded ID
+let myTeamLoading = false;
+let myTeamError = '';
 
 const COMPARE_STATS = [
   { label:'Total Points',    get: p => p.total_points,                          fmt: v => v,             higher:true },
@@ -997,7 +1057,7 @@ function renderTable(){
   const teamCodes = teamCodeMap(DATA.teams);
 
   const controls = document.querySelector('.controls');
-  if (controls) controls.style.display = (tabDef.id === 'compare' || tabDef.id === 'matches') ? 'none' : '';
+  if (controls) controls.style.display = (tabDef.id === 'compare' || tabDef.id === 'matches' || tabDef.id === 'myteam') ? 'none' : '';
 
   if (tabDef.special && tabDef.id === 'consistent'){
     renderConsistentTable(wrap, teams);
@@ -1016,6 +1076,11 @@ function renderTable(){
 
   if (tabDef.special && tabDef.id === 'matches'){
     renderMatchesView(wrap, teams, teamCodes);
+    return;
+  }
+
+  if (tabDef.special && tabDef.id === 'myteam'){
+    renderMyTeamView(wrap, teams, teamCodes);
     return;
   }
 
@@ -1936,6 +2001,143 @@ function renderMatchesView(wrap, teams, teamCodes){
       renderTable();
     };
   });
+}
+
+// ---------- My Team ----------
+
+async function loadMyTeam(id){
+  myTeamLoading = true;
+  myTeamError = '';
+  myTeamData = null;
+  renderTable();
+  try{
+    const entry = await fetchWithFallback(`https://fantasy.premierleague.com/api/entry/${id}/`);
+    // Pick the gameweek to show: current event the manager has played, else their last.
+    const events = (DATA.events || []);
+    const current = events.find(e => e.is_current) || [...events].reverse().find(e => e.finished) || events[0];
+    const gw = (entry.current_event) || (current && current.id) || 1;
+    const picks = await fetchWithFallback(`https://fantasy.premierleague.com/api/entry/${id}/event/${gw}/picks/`);
+    myTeamData = { entry, picks, gw };
+  }catch(err){
+    myTeamError = 'Could not load that team. Check the FPL ID and try again.';
+  }finally{
+    myTeamLoading = false;
+    renderTable();
+  }
+}
+
+function renderMyTeamView(wrap, teams, teamCodes){
+  const players = playersById(DATA.elements);
+
+  const headerHtml = `
+    <div class="myteam-header">
+      <input class="myteam-input" id="myTeamInput" type="text" inputmode="numeric"
+        placeholder="Enter your FPL ID (e.g. 1234567)" value="${myTeamId ? String(myTeamId).replace(/"/g,'') : ''}">
+      <button class="myteam-load" id="myTeamLoad" type="button">Load Team</button>
+    </div>
+    <div class="myteam-hint">Find your ID in the FPL site URL: fantasy.premierleague.com/entry/<b>ID</b>/event/…</div>`;
+
+  let bodyHtml = '';
+  if (myTeamLoading){
+    bodyHtml = `<div class="state">Loading your team…</div>`;
+  } else if (myTeamError){
+    bodyHtml = `<div class="state error">${myTeamError}</div>`;
+  } else if (myTeamData){
+    bodyHtml = myTeamBodyHtml(players, teams, teamCodes);
+  } else {
+    bodyHtml = `<div class="state">Enter your FPL ID above to see your squad.</div>`;
+  }
+
+  wrap.innerHTML = `<div class="myteam-wrap">${headerHtml}${bodyHtml}</div>`;
+
+  const input = document.getElementById('myTeamInput');
+  const loadBtn = document.getElementById('myTeamLoad');
+  const submit = () => {
+    const val = (input.value || '').trim().replace(/[^0-9]/g, '');
+    if (!val){ myTeamError = 'Please enter a valid numeric FPL ID.'; renderTable(); return; }
+    myTeamId = val;
+    saveMenuState();
+    loadMyTeam(val);
+  };
+  if (loadBtn) loadBtn.onclick = submit;
+  if (input) input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+
+  // Auto-load if we have a saved ID but no data yet (e.g. after refresh)
+  if (myTeamId && !myTeamData && !myTeamLoading && !myTeamError){
+    loadMyTeam(myTeamId);
+  }
+}
+
+function myTeamBodyHtml(players, teams, teamCodes){
+  const { entry, picks, gw } = myTeamData;
+  const chip = picks.active_chip ? `<span class="myteam-chip">${formatChip(picks.active_chip)}</span>` : '';
+  const eh = picks.entry_history || {};
+  const managerName = `${entry.player_first_name||''} ${entry.player_last_name||''}`.trim();
+
+  const summary = `
+    <div class="myteam-summary">
+      <div class="myteam-name">${entry.name || 'My Team'}</div>
+      <div class="myteam-sub">${managerName} · GW${gw}</div>
+      <div class="myteam-stats">
+        <div class="myteam-stat"><span>${eh.points != null ? eh.points : '—'}</span><label>GW Points</label></div>
+        <div class="myteam-stat"><span>${entry.summary_overall_points != null ? entry.summary_overall_points.toLocaleString() : '—'}</span><label>Total</label></div>
+        <div class="myteam-stat"><span>${entry.summary_overall_rank != null ? entry.summary_overall_rank.toLocaleString() : '—'}</span><label>Overall Rank</label></div>
+        ${chip ? `<div class="myteam-stat">${chip}<label>Chip</label></div>` : ''}
+      </div>
+    </div>`;
+
+  // Build rows for the 15 picks
+  const rows = (picks.picks || []).map(pk => {
+    const p = players[pk.element];
+    if (!p) return null;
+    return { pk, p, posName: POS_NAMES[p.element_type] };
+  }).filter(Boolean);
+
+  const starters = rows.filter(r => r.pk.position <= 11);
+  const bench = rows.filter(r => r.pk.position > 11);
+
+  // Group starters by position for a pitch-like list
+  const byPos = { GKP:[], DEF:[], MID:[], FWD:[] };
+  starters.forEach(r => byPos[r.posName] && byPos[r.posName].push(r));
+
+  const lineHtml = (r) => {
+    const isCap = r.pk.is_captain;
+    const isVice = r.pk.is_vice_captain;
+    const marker = isCap ? '<span class="myteam-cap">C</span>' : (isVice ? '<span class="myteam-cap vice">V</span>' : '');
+    return `
+      <div class="myteam-player">
+        ${jerseyIcon(teams[r.p.team]||'', teamCodes[r.p.team])}
+        <div class="myteam-player-info">
+          <div class="myteam-player-name">${r.p.web_name}${marker}${injuryIcon(r.p)}</div>
+          <div class="myteam-player-sub">${teams[r.p.team]||''} ${posBadge(r.posName)}</div>
+        </div>
+        <div class="myteam-player-pts">${r.p.event_points != null ? r.p.event_points : 0}</div>
+      </div>`;
+  };
+
+  const posGroupHtml = (label, list) => list.length ? `
+    <div class="myteam-pos-group">
+      <div class="myteam-pos-label">${label}</div>
+      <div class="myteam-pos-players">${list.map(lineHtml).join('')}</div>
+    </div>` : '';
+
+  const startersHtml = `
+    <div class="myteam-section-title">Starting XI</div>
+    ${posGroupHtml('Goalkeeper', byPos.GKP)}
+    ${posGroupHtml('Defenders', byPos.DEF)}
+    ${posGroupHtml('Midfielders', byPos.MID)}
+    ${posGroupHtml('Forwards', byPos.FWD)}`;
+
+  const benchHtml = bench.length ? `
+    <div class="myteam-section-title">Bench</div>
+    <div class="myteam-pos-players">${bench.map(lineHtml).join('')}</div>` : '';
+
+  return summary + startersHtml + benchHtml;
+}
+
+function formatChip(code){
+  const map = { wildcard:'Wildcard', bboost:'Bench Boost', '3xc':'Triple Captain', freehit:'Free Hit' };
+  return map[code] || code;
 }
 
 function openMatchModal(fixtureId, teams, teamCodes){

@@ -380,8 +380,26 @@
   .favor-empty{font-size:11px; color:rgba(var(--paper-rgb),0.3); font-family:'IBM Plex Mono',monospace; padding:2px 2px 4px;}
   .favor-empty-squad{font-size:12px; color:rgba(var(--paper-rgb),0.45); text-align:center; padding:10px;}
   .favor-add-box{margin-top:2px;}
-  .favor-player-select{width:100%;}
   .favor-add-player{align-self:flex-start; padding:7px 14px; font-size:13px;}
+  .favor-search-input{
+    width:100%; background:rgba(var(--paper-rgb),0.06); border:1px solid var(--line);
+    border-radius:6px; padding:9px 11px; color:var(--paper); font-size:13px; font-family:'IBM Plex Sans',sans-serif;
+  }
+  .favor-search-input:focus{outline:none; border-color:var(--pitch);}
+  .favor-search-results{margin-top:6px; max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;}
+  .favor-search-hint{font-size:12px; color:rgba(var(--paper-rgb),0.4); padding:8px 2px; font-family:'IBM Plex Mono',monospace;}
+  .favor-search-row{
+    display:flex; align-items:center; gap:8px; padding:6px 8px; border:1px solid var(--line);
+    border-radius:7px; cursor:pointer; background:rgba(var(--paper-rgb),0.03); transition:border-color .12s, background .12s;
+  }
+  .favor-search-row:hover{border-color:var(--pitch); background:rgba(11,170,90,0.08);}
+  .favor-search-row.added{border-color:var(--pitch); background:rgba(11,170,90,0.12);}
+  .favor-search-row .jersey-icon{width:20px; height:20px; flex:0 0 auto;}
+  .favor-search-info{flex:1; min-width:0;}
+  .favor-search-name{font-weight:600; color:var(--paper); font-size:13px;}
+  .favor-search-sub{font-size:10px; color:rgba(var(--paper-rgb),0.5); font-family:'IBM Plex Mono',monospace; display:inline-flex; align-items:center; gap:5px; margin-top:1px;}
+  .favor-search-add{flex:0 0 auto; width:20px; height:20px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--pitch); color:var(--purple-deep); font-weight:800; font-size:13px;}
+  .favor-search-row.added .favor-search-add{background:rgba(var(--paper-rgb),0.25); color:var(--paper);}
   .tcard-sub.err{color:#FF8A8A; white-space:normal;}
   .tcard-metrics{display:flex; justify-content:space-between; gap:4px; margin-top:2px;}
   .tcard-metric{display:flex; flex-direction:column; align-items:center; gap:1px; flex:1;}
@@ -1049,6 +1067,7 @@ function saveFavorTeams(){
   try { localStorage.setItem(FAVOR_TEAMS_KEY, JSON.stringify(favorTeams)); } catch(e){}
 }
 let favorAddingToId = null;  // which team currently has its "add player" box open
+let favorSearchTerm = '';    // current text in the player search box
 
 const COMPARE_STATS = [
   { label:'Total Points',    get: p => p.total_points,                          fmt: v => v,             higher:true },
@@ -2465,16 +2484,46 @@ function renderMyFavorView(wrap, teams, teamCodes){
     };
 
     const addBtn = card.querySelector('.favor-add-player');
-    if (addBtn) addBtn.onclick = () => { favorAddingToId = (favorAddingToId === t.id ? null : t.id); renderTable(); };
-
-    const sel = card.querySelector('.favor-player-select');
-    if (sel) sel.onchange = (e) => {
-      if (e.target.value){ addPlayerToFavor(t.id, e.target.value); favorAddingToId = t.id; }
+    if (addBtn) addBtn.onclick = () => {
+      if (favorAddingToId === t.id){ favorAddingToId = null; }
+      else { favorAddingToId = t.id; favorSearchTerm = ''; }
+      renderTable();
     };
+
+    // Live player search — filter the results list in place (no full re-render while typing)
+    const searchInput = card.querySelector('.favor-search-input');
+    const resultsBox = card.querySelector('.favor-search-results');
+    if (searchInput && resultsBox){
+      searchInput.oninput = (e) => {
+        favorSearchTerm = e.target.value;
+        resultsBox.innerHTML = favorSearchResults(teams, teamCodes, t.players || []);
+        wireFavorResultRows(resultsBox, t.id);
+      };
+      // focus the box when it opens
+      searchInput.focus();
+      searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+      wireFavorResultRows(resultsBox, t.id);
+    }
 
     card.querySelectorAll('.favor-remove-player').forEach(btn => {
       btn.onclick = () => removePlayerFromFavor(t.id, btn.dataset.element);
     });
+  });
+}
+
+// Attach click handlers to player result rows (adds/removes without losing the search box)
+function wireFavorResultRows(resultsBox, teamId){
+  resultsBox.querySelectorAll('.favor-search-row').forEach(row => {
+    row.onclick = () => {
+      const elId = row.dataset.element;
+      const team = favorTeams.find(x => x.id === teamId);
+      if (!team) return;
+      if (team.players.includes(Number(elId))){
+        removePlayerFromFavor(teamId, elId);
+      } else {
+        addPlayerToFavor(teamId, elId);
+      }
+    };
   });
 }
 
@@ -2513,10 +2562,8 @@ function favorTeamHtml(t, players, teams, teamCodes){
   const isAdding = favorAddingToId === t.id;
   const addBox = isAdding ? `
     <div class="favor-add-box">
-      <select class="favor-player-select compare-select">
-        <option value="">Select a player to add…</option>
-        ${favorPlayerOptions(teams)}
-      </select>
+      <input class="favor-search-input" type="text" placeholder="Search player by name or club…" value="${favorSearchTerm.replace(/"/g,'&quot;')}" autocomplete="off">
+      <div class="favor-search-results">${favorSearchResults(teams, teamCodes, t.players || [])}</div>
     </div>` : '';
 
   const overCap = (assigned.length > 15) || counts.GKP>2 || counts.DEF>5 || counts.MID>5 || counts.FWD>3;
@@ -2539,15 +2586,37 @@ function favorTeamHtml(t, players, teams, teamCodes){
     </div>`;
 }
 
-// Player <option> list grouped by position (reused from compare-style grouping)
-function favorPlayerOptions(teams){
-  const groups = { GKP:[], DEF:[], MID:[], FWD:[] };
-  DATA.elements.forEach(p => { const pos = POS_NAMES[p.element_type]; if (groups[pos]) groups[pos].push(p); });
-  Object.values(groups).forEach(l => l.sort((a,b) => b.total_points - a.total_points));
-  return Object.entries(groups).map(([pos, l]) => `
-    <optgroup label="${pos}">
-      ${l.map(p => `<option value="${p.id}">${p.web_name} — ${teams[p.team]||''} (£${(p.now_cost/10).toFixed(1)}m)</option>`).join('')}
-    </optgroup>`).join('');
+// Filtered, clickable player search results for the My Favor add box.
+function favorSearchResults(teams, teamCodes, alreadyIds){
+  const q = favorSearchTerm.trim().toLowerCase();
+  if (!q){
+    return `<div class="favor-search-hint">Type at least 2 letters to search players…</div>`;
+  }
+  if (q.length < 2){
+    return `<div class="favor-search-hint">Keep typing…</div>`;
+  }
+  const have = new Set((alreadyIds || []).map(Number));
+  let list = DATA.elements.filter(p =>
+    (p.web_name||'').toLowerCase().includes(q) ||
+    ((teams[p.team]||'').toLowerCase().includes(q))
+  );
+  list.sort((a,b) => b.total_points - a.total_points);
+  list = list.slice(0, 30);
+  if (!list.length){
+    return `<div class="favor-search-hint">No players match “${favorSearchTerm}”.</div>`;
+  }
+  return list.map(p => {
+    const added = have.has(p.id);
+    return `
+      <div class="favor-search-row ${added ? 'added' : ''}" data-element="${p.id}">
+        ${jerseyIcon(teams[p.team]||'', teamCodes[p.team])}
+        <div class="favor-search-info">
+          <div class="favor-search-name">${p.web_name}${injuryIcon(p)}</div>
+          <div class="favor-search-sub">${teams[p.team]||''} ${posBadge(POS_NAMES[p.element_type])} · £${(p.now_cost/10).toFixed(1)}m · ${p.total_points} pts</div>
+        </div>
+        <span class="favor-search-add">${added ? '✓' : '+'}</span>
+      </div>`;
+  }).join('');
 }
 
 function openMatchModal(fixtureId, teams, teamCodes){
